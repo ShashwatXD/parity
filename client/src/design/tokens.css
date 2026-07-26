@@ -1,0 +1,145 @@
+/**
+ * Parity design tokens — Airbnb-inspired warm light system.
+ * Palette tokens (`--palette-*`) are the source of truth.
+ */
+
+:root {
+  /* ——— Palette: brand ——— */
+  --palette-bg-primary-core: #ff385c;
+  --palette-bg-tertiary-core: #e00b41;
+  --palette-text-primary-error: #c13515;
+  --palette-text-secondary-error-hover: #b32505;
+  --palette-bg-primary-luxe: #460479;
+  --palette-bg-primary-plus: #92174d;
+
+  /* ——— Palette: text ——— */
+  --palette-text-primary: #222222;
+  --palette-text-focused: #3f3f3f;
+  --palette-text-secondary: #6a6a6a;
+  --palette-text-material-disabled: rgba(0, 0, 0, 0.24);
+  --palette-text-link-disabled: #929292;
+  --palette-text-legal: #428bff;
+  --palette-text-on-brand: #ffffff;
+
+  /* ——— Palette: surface ——— */
+  --palette-bg-page: #ffffff;
+  --palette-bg-surface: #ffffff;
+  --palette-bg-secondary: #f2f2f2;
+  --palette-bg-muted: #f7f7f7;
+  --palette-border: #c1c1c1;
+  --palette-border-subtle: rgba(0, 0, 0, 0.08);
+  --palette-grey1000: #222222;
+
+  /* ——— Semantic aliases used by components ——— */
+  --bg-marketing: var(--palette-bg-page);
+  --bg-panel: var(--palette-bg-surface);
+  --bg-surface: var(--palette-bg-muted);
+  --bg-elevated: var(--palette-bg-secondary);
+
+  --surface-01: var(--palette-bg-surface);
+  --surface-02: var(--palette-bg-muted);
+  --surface-03: var(--palette-bg-secondary);
+
+  --text-primary: var(--palette-text-primary);
+  --text-secondary: var(--palette-text-focused);
+  --text-tertiary: var(--palette-text-secondary);
+  --text-quaternary: var(--palette-text-link-disabled);
+
+  --brand: var(--palette-bg-primary-core);
+  --brand-accent: var(--palette-bg-primary-core);
+  --brand-hover: var(--palette-bg-tertiary-core);
+  --brand-muted: var(--palette-bg-primary-plus);
+
+  --status-success: #008a05;
+  --status-emerald: #008a05;
+
+  --border-subtle: var(--palette-border-subtle);
+  --border-standard: var(--palette-border-subtle);
+  --border-solid: var(--palette-border);
+  --border-solid-mid: #dddddd;
+
+  /* Agents — readable accents on white (semantic only) */
+  --agent-debater: #428bff;
+  --agent-challenger: #e00b41;
+  --agent-fact-checker: #b36b00;
+  --agent-judge: #460479;
+  --agent-human: #008a05;
+  --agent-summarizer: #92174d;
+
+  /* ——— Typography ——— */
+  /* Cereal VF is proprietary; Plus Jakarta Sans is the loaded stand-in */
+  --font-sans: "Airbnb Cereal VF", "Plus Jakarta Sans", Circular, -apple-system, system-ui,
+    Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-features: "salt";
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ——— Spacing (8px rhythm) ——— */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ——— Radius ——— */
+  --radius-micro: 4px;
+  --radius-sm: 8px;
+  --radius-md: 8px;
+  --radius-badge: 14px;
+  --radius-card: 20px;
+  --radius-panel: 20px;
+  --radius-large: 32px;
+  --radius-pill: 9999px;
+  --radius-circle: 50%;
+
+  /* ——— Elevation (Airbnb three-layer + hover) ——— */
+  --shadow-card:
+    rgba(0, 0, 0, 0.02) 0px 0px 0px 1px,
+    rgba(0, 0, 0, 0.04) 0px 2px 6px,
+    rgba(0, 0, 0, 0.1) 0px 4px 8px;
+  --shadow-hover: rgba(0, 0, 0, 0.08) 0px 4px 12px;
+  --shadow-focus: 0 0 0 2px var(--palette-grey1000);
+  --shadow-active-ring: rgb(255, 255, 255) 0px 0px 0px 4px, 0 0 0 6px var(--palette-grey1000);
+  --shadow-micro: var(--shadow-card);
+  --shadow-ring: rgba(0, 0, 0, 0.02) 0px 0px 0px 1px;
+  --shadow-elevated: var(--shadow-hover);
+  --shadow-inset: none;
+  --shadow-dialog: var(--shadow-card);
+  --shadow-focus-soft: var(--shadow-focus);
+
+  /* ——— Motion ——— */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration: 200ms;
+
+  /* ——— Layout ——— */
+  --content-max: 1440px;
+  --sidebar-width: 320px;
+
+  /* ——— Back-compat aliases ——— */
+  --bg-color: var(--bg-marketing);
+  --panel-bg: var(--bg-panel);
+  --panel-border: var(--border-standard);
+  --text-main: var(--text-primary);
+  --text-muted: var(--text-tertiary);
+  --text-dark: var(--text-quaternary);
+  --primary: var(--brand);
+  --accent: var(--brand);
+  --color-debater: var(--agent-debater);
+  --color-challenger: var(--agent-challenger);
+  --color-fact-checker: var(--agent-fact-checker);
+  --color-judge: var(--agent-judge);
+  --color-human: var(--agent-human);
+  --color-summarizer: var(--agent-summarizer);
+  --border-radius: var(--radius-card);
+  --transition: all var(--duration) var(--ease-out);
+}

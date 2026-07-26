@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import OrchestratorView from './components/OrchestratorView.jsx';
 import ObservabilityView from './components/ObservabilityView.jsx';
 import EvaluatorView from './components/EvaluatorView.jsx';
-import { Activity, ShieldAlert, BarChart3, Binary, Terminal } from 'lucide-react';
+import { Activity, BarChart3, Binary, Terminal, Scale } from 'lucide-react';
+import { Badge } from './design/ui.jsx';
 
 function App() {
   const [activeTab, setActiveTab] = useState('arena');
   const [sessions, setSessions] = useState([]);
-  const [loading, setLoading] = useState(false);
 
-  // Fetch debates list periodically or on mount
   const fetchDebates = async () => {
     try {
       const res = await fetch('/api/debates');
@@ -18,7 +17,7 @@ function App() {
         setSessions(data);
       }
     } catch (e) {
-      console.error("Failed to load debates list", e);
+      console.error('Failed to load debates list', e);
     }
   };
 
@@ -28,68 +27,53 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  const tabs = [
+    { id: 'arena', label: 'Debate Arena', icon: Terminal },
+    { id: 'observability', label: 'Observability', icon: BarChart3 },
+    { id: 'evaluator', label: 'Offline Evaluator', icon: Binary }
+  ];
+
   return (
     <div className="layout-container">
-      {/* Premium Header */}
       <header className="app-header">
         <div className="brand">
-          <div className="logo-icon">⚖️</div>
+          <div className="brand-mark">
+            <Scale size={18} />
+          </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span className="logo-text">PARITY</span>
-              <span className="logo-tag">Agent Engine</span>
+            <div className="brand-title">
+              <span className="brand-name">Parity</span>
+              <span className="brand-tag">Agent Engine</span>
             </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-dark)' }}>
-              Multi-Agent AI Debate Orchestrator & Evaluation Suite
-            </p>
+            <p className="brand-sub">Multi-agent debate orchestrator & evaluation suite</p>
           </div>
         </div>
 
-        {/* Tab Control */}
         <nav className="nav-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'arena' ? 'active' : ''}`}
-            onClick={() => setActiveTab('arena')}
-          >
-            <Terminal size={16} />
-            Debate Arena
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'observability' ? 'active' : ''}`}
-            onClick={() => setActiveTab('observability')}
-          >
-            <BarChart3 size={16} />
-            Observability Dashboard
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'evaluator' ? 'active' : ''}`}
-            onClick={() => setActiveTab('evaluator')}
-          >
-            <Binary size={16} />
-            Offline Evaluator
-          </button>
+          {tabs.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              className={`tab-btn ${activeTab === id ? 'active' : ''}`}
+              onClick={() => setActiveTab(id)}
+            >
+              <Icon size={14} />
+              {label}
+            </button>
+          ))}
         </nav>
 
-        {/* Global Connection Badge */}
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div className="badge badge-active" style={{ gap: '0.35rem' }}>
-            <Activity size={12} className="animate-float" />
-            System: Active
-          </div>
-        </div>
+        <Badge tone="active">
+          <Activity size={12} className="animate-float" />
+          System active
+        </Badge>
       </header>
 
-      {/* Main View Display */}
-      <main style={{ flex: 1, minHeight: 0 }}>
+      <main className="flex-1" style={{ minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {activeTab === 'arena' && (
           <OrchestratorView sessions={sessions} onDebateCreated={fetchDebates} />
         )}
-        {activeTab === 'observability' && (
-          <ObservabilityView sessions={sessions} />
-        )}
-        {activeTab === 'evaluator' && (
-          <EvaluatorView />
-        )}
+        {activeTab === 'observability' && <ObservabilityView sessions={sessions} />}
+        {activeTab === 'evaluator' && <EvaluatorView />}
       </main>
     </div>
   );
