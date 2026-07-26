@@ -1,16 +1,16 @@
 /**
  * Parity design tokens — Airbnb-inspired warm light system.
- * Palette tokens (`--palette-*`) are the source of truth.
+ * Brand accent: Apple Blue (#0071e3) instead of Rausch Red.
  */
 
 :root {
   /* ——— Palette: brand ——— */
-  --palette-bg-primary-core: #ff385c;
-  --palette-bg-tertiary-core: #e00b41;
+  --palette-bg-primary-core: #0071e3;
+  --palette-bg-tertiary-core: #0077ed;
   --palette-text-primary-error: #c13515;
   --palette-text-secondary-error-hover: #b32505;
   --palette-bg-primary-luxe: #460479;
-  --palette-bg-primary-plus: #92174d;
+  --palette-bg-primary-plus: #0066cc;
 
   /* ——— Palette: text ——— */
   --palette-text-primary: #222222;
@@ -59,7 +59,7 @@
   --border-solid-mid: #dddddd;
 
   /* Agents — readable accents on white (semantic only) */
-  --agent-debater: #428bff;
+  --agent-debater: #0071e3;
   --agent-challenger: #e00b41;
   --agent-fact-checker: #b36b00;
   --agent-judge: #460479;
@@ -67,7 +67,6 @@
   --agent-summarizer: #92174d;
 
   /* ——— Typography ——— */
-  /* Cereal VF is proprietary; Plus Jakarta Sans is the loaded stand-in */
   --font-sans: "Airbnb Cereal VF", "Plus Jakarta Sans", Circular, -apple-system, system-ui,
     Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;

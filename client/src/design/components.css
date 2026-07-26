@@ -1,5 +1,6 @@
 /**
  * Component layer — Airbnb-inspired warm light UI (class-based, DRY).
+ * Brand accent is Apple Blue via --brand tokens.
  */
 
 /* ——— Layout ——— */
@@ -435,7 +436,7 @@ select option {
 
 .badge-debater {
   color: var(--agent-debater);
-  background: rgba(66, 139, 255, 0.12);
+  background: rgba(0, 113, 227, 0.12);
 }
 
 .badge-challenger {
@@ -465,7 +466,7 @@ select option {
 
 .badge-active {
   color: var(--brand);
-  background: rgba(255, 56, 92, 0.1);
+  background: rgba(0, 113, 227, 0.1);
 }
 
 /* ——— Metric cards ——— */
@@ -716,7 +717,7 @@ select option {
 
 .status-log--accent {
   color: var(--brand);
-  background: rgba(255, 56, 92, 0.08);
+  background: rgba(0, 113, 227, 0.08);
 }
 
 /* ——— Score / data ——— */
