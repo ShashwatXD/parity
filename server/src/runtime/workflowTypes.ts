@@ -6,6 +6,10 @@ export type WorkflowStep =
       toolName: string;
       args?: Record<string, unknown>;
       requireApproval?: boolean;
+      /** Retry failed MCP tool calls (default 0). */
+      maxRetries?: number;
+      /** Skip step unless prior step output equals the expected value. */
+      when?: { fromStepId: string; path?: string; equals?: unknown };
     }
   | {
       id: string;

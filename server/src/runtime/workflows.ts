@@ -3,7 +3,7 @@ import { ApprovalRepository } from '../repositories/approvalRepository.js';
 import { ArtifactRepository } from '../repositories/artifactRepository.js';
 import { ExecutionRepository } from '../repositories/executionRepository.js';
 import { WorkflowRepository } from '../repositories/workflowRepository.js';
-import type { WorkflowGraph } from './workflowTypes.js';
+import type { WorkflowGraph, WorkflowStep } from './workflowTypes.js';
 
 export type { WorkflowStep, WorkflowGraph } from './workflowTypes.js';
 
@@ -27,6 +27,41 @@ export function getWorkflow(id: string) {
   return WorkflowRepository.getById(id);
 }
 
+function readPath(value: unknown, path?: string): unknown {
+  if (!path) return value;
+  return path.split('.').reduce<unknown>((acc, key) => {
+    if (acc && typeof acc === 'object' && key in (acc as Record<string, unknown>)) {
+      return (acc as Record<string, unknown>)[key];
+    }
+    return undefined;
+  }, value);
+}
+
+function shouldRunStep(step: WorkflowStep, stepOutputs: Record<string, unknown>): boolean {
+  if (step.type !== 'tool' || !step.when) return true;
+  const source = stepOutputs[step.when.fromStepId];
+  const actual = readPath(source, step.when.path);
+  return JSON.stringify(actual) === JSON.stringify(step.when.equals);
+}
+
+async function callToolWithRetry(
+  connectionId: string,
+  toolName: string,
+  args: Record<string, unknown>,
+  maxRetries: number,
+) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await mcpManager.callTool(connectionId, toolName, args);
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxRetries) break;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
 export async function runWorkflow(workflowId: string, input: Record<string, unknown> = {}) {
   const workflow = WorkflowRepository.getById(workflowId);
   if (!workflow) throw new Error('Workflow not found');
@@ -45,6 +80,17 @@ export async function runWorkflow(workflowId: string, input: Record<string, unkn
   try {
     for (const step of graph.steps) {
       const started = Date.now();
+      if (!shouldRunStep(step, stepOutputs)) {
+        ExecutionRepository.recordEvent({
+          runId: timeline.runId,
+          kind: 'workflow_skip',
+          label: step.id,
+          detail: { reason: 'when condition not met' },
+          latencyMs: Date.now() - started,
+        });
+        continue;
+      }
+
       if (step.type === 'tool') {
         if (step.requireApproval) {
           const approvalId = ApprovalRepository.createPending({
@@ -58,13 +104,18 @@ export async function runWorkflow(workflowId: string, input: Record<string, unkn
           ...(step.args ?? {}),
           ...((input.toolArgs as Record<string, unknown>) ?? {}),
         };
-        const result = await mcpManager.callTool(step.connectionId, step.toolName, args);
+        const result = await callToolWithRetry(
+          step.connectionId,
+          step.toolName,
+          args,
+          step.maxRetries ?? 0,
+        );
         stepOutputs[step.id] = result;
         ExecutionRepository.recordEvent({
           runId: timeline.runId,
           kind: 'tool_call',
           label: step.toolName,
-          detail: { connectionId: step.connectionId, args, result },
+          detail: { connectionId: step.connectionId, args, result, maxRetries: step.maxRetries ?? 0 },
           latencyMs: Date.now() - started,
         });
       } else if (step.type === 'artifact') {

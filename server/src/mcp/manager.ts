@@ -32,6 +32,23 @@ export const connectInputSchema = z.discriminatedUnion('transport', [
 
 export type ConnectInput = z.infer<typeof connectInputSchema>;
 
+function mergeProcessEnv(extra?: Record<string, string>): Record<string, string> | undefined {
+  if (!extra || Object.keys(extra).length === 0) return undefined;
+  const base: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) base[key] = value;
+  }
+  return { ...base, ...extra };
+}
+
+function withGithubAuthHeaders(headers?: Record<string, string>): Record<string, string> | undefined {
+  const next = { ...(headers ?? {}) };
+  if (!next.Authorization && process.env.GITHUB_PERSONAL_ACCESS_TOKEN) {
+    next.Authorization = `Bearer ${process.env.GITHUB_PERSONAL_ACCESS_TOKEN}`;
+  }
+  return Object.keys(next).length ? next : undefined;
+}
+
 type LiveConnection = {
   id: string;
   name: string;
@@ -72,15 +89,15 @@ export class McpManager {
         const transport = new StdioClientTransport({
           command: input.config.command,
           args: input.config.args,
-          env: input.config.env,
+          env: mergeProcessEnv(input.config.env),
           cwd: input.config.cwd,
         });
         await client.connect(transport);
       } else {
         const transport = new StreamableHTTPClientTransport(new URL(input.config.url), {
-          requestInit: input.config.headers
-            ? { headers: input.config.headers }
-            : undefined,
+          requestInit: {
+            headers: withGithubAuthHeaders(input.config.headers),
+          },
         });
         await client.connect(transport);
       }

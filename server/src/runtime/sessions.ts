@@ -17,6 +17,10 @@ export function getSession(id: string): Session | undefined {
   return SessionRepository.getById(id);
 }
 
+export function deleteSession(id: string): boolean {
+  return SessionRepository.delete(id);
+}
+
 export function listMessages(sessionId: string): Message[] {
   return MessageRepository.listBySession(sessionId);
 }

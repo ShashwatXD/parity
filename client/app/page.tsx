@@ -10,7 +10,7 @@ import {
   StudioApi,
   WorkflowApi,
 } from '../lib/api/apiRepositories';
-import { DEFAULT_MCP, DEFAULT_MODELS, DEFAULT_PROVIDER, WORKSPACE_TABS } from '../lib/constants';
+import { DEFAULT_MCP, DEFAULT_MODELS, DEFAULT_PROVIDER, PUBLIC_MCP_SERVERS, WORKSPACE_TABS } from '../lib/constants';
 import type {
   Approval,
   Artifact,
@@ -63,6 +63,7 @@ export default function HomePage() {
   const [playResult, setPlayResult] = useState('');
   const [wfName, setWfName] = useState('Demo filesystem list');
   const [lastRunId, setLastRunId] = useState('');
+  const [githubToken, setGithubToken] = useState('');
 
   const selectedTool = useMemo(
     () => tools.find((t) => `${t.connectionId}:${t.name}` === playTool) ?? tools[0],
@@ -113,6 +114,22 @@ export default function HomePage() {
     await openSession(session.id);
   }
 
+  async function deleteChat(id: string) {
+    setError('');
+    try {
+      await SessionApi.delete(id);
+      const next = sessions.filter((s) => s.id !== id);
+      setSessions(next);
+      if (sessionId === id) {
+        setSessionId('');
+        setMessages([]);
+        if (next[0]) await openSession(next[0].id);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function connectMcp() {
     setBusy(true);
     setError('');
@@ -121,15 +138,54 @@ export default function HomePage() {
         mcpTransport === 'stdio'
           ? {
               name: mcpName,
-              transport: 'stdio',
+              transport: 'stdio' as const,
               config: { command: mcpCommand, args: mcpArgs.split(' ').filter(Boolean) },
             }
           : {
               name: mcpName,
-              transport: 'http',
+              transport: 'http' as const,
               config: { url: mcpUrl },
             };
       await McpApi.connect(body);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function connectPublicMcp(preset: (typeof PUBLIC_MCP_SERVERS)[number]) {
+    if (connections.some((c) => c.name === preset.name && c.status === 'connected')) {
+      setError(`${preset.name} is already connected`);
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      const token = githubToken.trim();
+      if (preset.transport === 'stdio') {
+        await McpApi.connect({
+          name: preset.name,
+          transport: 'stdio',
+          config: {
+            command: preset.command,
+            args: [...preset.args],
+            ...(token
+              ? { env: { GITHUB_PERSONAL_ACCESS_TOKEN: token } }
+              : {}),
+          },
+        });
+      } else {
+        await McpApi.connect({
+          name: preset.name,
+          transport: 'http',
+          config: {
+            url: preset.url,
+            ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+          },
+        });
+      }
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -174,6 +230,7 @@ export default function HomePage() {
             toolName: selectedTool.name,
             args: JSON.parse(playArgs || '{}'),
             requireApproval: false,
+            maxRetries: 1,
           },
           {
             id: 'step2',
@@ -329,14 +386,27 @@ export default function HomePage() {
             <div className="card-body">
               <div style={styles.list}>
                 {sessions.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={s.id === sessionId ? 'list-item list-item-active' : 'list-item'}
-                    onClick={() => openSession(s.id)}
-                  >
-                    {s.title}
-                  </button>
+                  <div key={s.id} className="session-row">
+                    <button
+                      type="button"
+                      className={s.id === sessionId ? 'list-item list-item-active' : 'list-item'}
+                      onClick={() => openSession(s.id)}
+                    >
+                      {s.title}
+                    </button>
+                    <button
+                      type="button"
+                      className="session-delete"
+                      title="Delete chat"
+                      aria-label={`Delete ${s.title}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void deleteChat(s.id);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
                 ))}
               </div>
               <hr style={{ border: 0, borderTop: "1px solid var(--line)", margin: "16px 0" }} />
@@ -378,9 +448,22 @@ export default function HomePage() {
                 {messages.map((m) => (
                   <article
                     key={m.id}
-                    className={m.role === 'user' ? 'msg-user' : 'msg-assistant'}
+                    className={
+                      m.role === 'user'
+                        ? 'msg-user'
+                        : m.role === 'tool'
+                          ? 'msg-assistant'
+                          : 'msg-assistant'
+                    }
+                    style={
+                      m.role === 'tool'
+                        ? { borderLeft: '3px solid var(--primary)', fontSize: 13 }
+                        : undefined
+                    }
                   >
-                    <div className="msg-role">{m.role}</div>
+                    <div className="msg-role">
+                      {m.role === 'tool' ? `tool · ${m.toolName ?? 'mcp'}` : m.role}
+                    </div>
                     <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
                   </article>
                 ))}
@@ -415,7 +498,47 @@ export default function HomePage() {
 
       {tab === 'servers' && (
         <section className="card" style={styles.panelWide}>
-          <h2 style={styles.section}>Connect MCP server</h2>
+          <h2 style={styles.section}>Public MCP servers</h2>
+          <p style={{ ...styles.hint, margin: '0 18px 12px' }}>
+            Official and well-known servers — one click connects (npx/Docker may download on first use).
+          </p>
+          <div style={styles.row}>
+            <label style={styles.label}>
+              GitHub PAT (for GitHub MCP presets)
+              <input
+                type="password"
+                value={githubToken}
+                onChange={(e) => setGithubToken(e.target.value)}
+                className="field"
+                placeholder="ghp_… or leave empty to use GITHUB_PERSONAL_ACCESS_TOKEN from .env"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <div style={styles.cards}>
+            {PUBLIC_MCP_SERVERS.map((preset) => {
+              const connected = connections.some(
+                (c) => c.name === preset.name && c.status === 'connected',
+              );
+              return (
+                <article key={preset.id} style={styles.card}>
+                  <strong>{preset.name}</strong>
+                  {preset.requiresGithubToken && (
+                    <p style={{ ...styles.hint, color: 'var(--primary)', marginTop: 4 }}>Needs PAT</p>
+                  )}
+                  <p style={styles.hint}>{preset.description}</p>
+                  <button
+                    className="btn-primary"
+                    disabled={busy || connected}
+                    onClick={() => void connectPublicMcp(preset)}
+                  >
+                    {connected ? 'Connected' : 'Connect'}
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+          <h2 style={styles.section}>Custom connection</h2>
           <div style={styles.row}>
             <label style={styles.label}>
               Name
@@ -473,6 +596,7 @@ export default function HomePage() {
                 </button>
               </li>
             ))}
+            {connections.length === 0 && <li style={styles.hint}>No servers connected yet</li>}
           </ul>
         </section>
       )}
@@ -677,7 +801,7 @@ export default function HomePage() {
       )}
       <footer className="footer">
         <span style={{ color: 'var(--primary)', fontWeight: 700 }}>MCP Studio</span>
-        {' '}· © Parity — Airbnb-style blue studio
+        {' '}· © Parity
       </footer>
     </main>
   );

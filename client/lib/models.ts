@@ -15,6 +15,7 @@ export type Message = {
   id: string;
   role: string;
   content: string;
+  toolName?: string | null;
 };
 
 export type SessionDetail = Session & {

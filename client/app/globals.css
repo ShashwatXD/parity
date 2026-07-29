@@ -293,6 +293,46 @@ textarea.field {
   color: var(--primary-hover);
 }
 
+.session-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.session-row .list-item {
+  flex: 1;
+  padding-right: 36px;
+}
+
+.session-delete {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.session-row:hover .session-delete,
+.session-row:focus-within .session-delete {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.session-delete:hover {
+  background: #fff0ee;
+  color: var(--error);
+}
+
 .msg-user {
   background: var(--ink);
   color: white;

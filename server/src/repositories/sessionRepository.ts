@@ -46,6 +46,12 @@ export const SessionRepository = {
   touch(id: string) {
     sqlite.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`).run(Date.now(), id);
   },
+
+  /** Deletes session; messages cascade via FK ON DELETE CASCADE. */
+  delete(id: string): boolean {
+    const result = sqlite.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
+    return Number(result.changes) > 0;
+  },
 };
 
 export const MessageRepository = {

@@ -22,6 +22,8 @@ export const SessionApi = {
   get: (id: string) => apiGet<SessionDetail>(API_ROUTES.session(id)),
   create: (body: { title?: string; provider?: string; model?: string }) =>
     apiSend<Session>(API_ROUTES.sessions, { method: 'POST', body }),
+  delete: (id: string) =>
+    apiSend<{ ok: boolean }>(API_ROUTES.session(id), { method: 'DELETE' }),
 };
 
 export const McpApi = {

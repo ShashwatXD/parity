@@ -12,6 +12,7 @@ import { runAgentTurn } from '../runtime/agent.js';
 import { enqueueJob, listJobs } from '../runtime/jobs.js';
 import {
   createSession,
+  deleteSession,
   getSession,
   listMessages,
 } from '../runtime/sessions.js';
@@ -49,6 +50,12 @@ api.get('/sessions/:id', (c) => {
   const session = getSession(c.req.param('id'));
   if (!session) return c.json({ error: 'Session not found' }, 404);
   return c.json({ ...session, messages: listMessages(session.id) });
+});
+
+api.delete('/sessions/:id', (c) => {
+  const id = c.req.param('id');
+  if (!deleteSession(id)) return c.json({ error: 'Session not found' }, 404);
+  return c.json({ ok: true });
 });
 
 api.get(API_ROUTES.search, async (c) => {
