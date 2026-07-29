@@ -1,7 +1,9 @@
 # Dependencies
 node_modules/
+client/node_modules/
+server/node_modules/
 
-# Env / secrets — never push
+# Env / secrets
 .env
 .env.*
 !.env.example
@@ -9,15 +11,17 @@ server/.env
 
 # Local runtime data
 .parity/
+server/.data/
 *.db
 *.sqlite
 *.sqlite3
-server/parity.db
 
 # Build output
 dist/
 build/
-client/dist/
+client/.next/
+client/out/
+server/dist/
 .vite/
 
 # Logs & debug
@@ -31,4 +35,5 @@ Thumbs.db
 *.swp
 *.swo
 
+# Deprecated Obsidian vault (pending removal)
 parity_vault/

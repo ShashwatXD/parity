@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    ports:
+      - "5005:5005"
+    env_file:
+      - .env
+    volumes:
+      - parity-data:/app/server/.data
+  web:
+    build: .
+    command: ["npm", "run", "start", "--prefix", "client"]
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:5005/api
+    depends_on:
+      - api
+
+volumes:
+  parity-data:
