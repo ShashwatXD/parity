@@ -10,7 +10,17 @@ import {
 } from '@/lib/api/repositories/workspaceRepository';
 import { canPickDirectory, pickWorkspaceDirectory } from '@/lib/workspace/pickDirectory';
 import { subscribeWorkspaceChanged } from '@/lib/workspace/events';
+import { API_BASE_URL } from '@/lib/constants';
 import { cn } from '@/lib/utils/cn';
+
+function isLocalApi(): boolean {
+  try {
+    const host = new URL(API_BASE_URL, 'http://localhost').hostname;
+    return host === 'localhost' || host === '127.0.0.1';
+  } catch {
+    return false;
+  }
+}
 
 function TreeNode({
   node,
@@ -143,34 +153,49 @@ export function FilesPanel() {
     setError('');
     setOk('');
     try {
-      // Prefer native dialog on the API host → real path like /Users/…/Desktop/bruno
-      const res = await workspaceRepository.pick();
+      // Local API: native dialog → real path. Prod (Render): browser dialog → sync copy.
+      if (isLocalApi()) {
+        try {
+          const res = await workspaceRepository.pick();
+          setPathDraft(res.root);
+          setRoot(res.root);
+          setSelected('.');
+          setContent('');
+          setRagHits([]);
+          await refresh();
+          setOk(`Workspace: ${res.root}`);
+          return;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (/cancel/i.test(msg)) return;
+          // fall through to browser sync
+        }
+      }
+
+      if (!canPickDirectory()) {
+        setError(
+          'Folder picker needs Chrome/Edge on HTTPS. On production, Select folder syncs your files to the API.',
+        );
+        return;
+      }
+
+      const picked = await pickWorkspaceDirectory();
+      setOk(`Uploading “${picked.name}” (${picked.files.length} files)…`);
+      const res = await workspaceRepository.sync(picked.files, picked.name);
       setPathDraft(res.root);
       setRoot(res.root);
       setSelected('.');
       setContent('');
       setRagHits([]);
       await refresh();
-      setOk(`Workspace: ${res.root}`);
+      setOk(
+        isLocalApi()
+          ? `Workspace synced “${picked.name}” (${res.fileCount} files)`
+          : `Workspace ready: “${picked.name}” (${res.fileCount} files synced to API)`,
+      );
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/cancel/i.test(msg)) return;
-      // Remote API / no GUI: fall back to browser picker + sync copy
-      try {
-        if (!canPickDirectory()) throw e;
-        const picked = await pickWorkspaceDirectory();
-        const res = await workspaceRepository.sync(picked.files, picked.name);
-        setPathDraft(res.root);
-        setRoot(res.root);
-        setSelected('.');
-        setContent('');
-        setRagHits([]);
-        await refresh();
-        setOk(`Workspace synced “${picked.name}” (${res.fileCount} files) — copy on API host`);
-      } catch (e2) {
-        if (e2 instanceof DOMException && e2.name === 'AbortError') return;
-        setError(e2 instanceof Error ? e2.message : String(e2));
-      }
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setSelecting(false);
     }
