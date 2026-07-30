@@ -1,7 +1,15 @@
 'use client';
 
-import { ArrowUp, Settings2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowUp, Check, ChevronDown, Settings2 } from 'lucide-react';
 import type { PublicLlmProfile } from '@/lib/models';
+import { cn } from '@/lib/utils/cn';
+
+const LABEL_MAX = 18;
+
+function truncateLabel(label: string): string {
+  return label.length <= LABEL_MAX ? label : `${label.slice(0, LABEL_MAX)}…`;
+}
 
 type Props = {
   value: string;
@@ -25,6 +33,31 @@ export function ChatComposer({
   onOpenSettings,
 }: Props) {
   const active = profiles.find((p) => p.id === profileId) ?? profiles[0];
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function selectProfile(id: string) {
+    if (id !== active?.id) onProfileChange(id);
+    setOpen(false);
+  }
 
   return (
     <div className="composer-wrap">
@@ -43,40 +76,66 @@ export function ChatComposer({
           }}
         />
         <div className="composer-toolbar">
-          {profiles.length > 0 ? (
-            <select
-              className="composer-profile-select"
-              value={active?.id ?? ''}
-              onChange={(e) => onProfileChange(e.target.value)}
-              disabled={busy}
-              aria-label="LLM profile"
-            >
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {p.provider}/{p.model}
-                </option>
-              ))}
-            </select>
-          ) : (
+          <div className="composer-llm-picker" ref={menuRef}>
             <button
               type="button"
-              className="composer-model-chip"
-              onClick={onOpenSettings}
-              title="Add LLM profiles in Settings"
+              className="composer-llm-pill"
+              disabled={busy}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              onClick={() => setOpen((v) => !v)}
             >
-              <Settings2 size={13} />
-              <span className="composer-model-chip-text">Add LLM in Settings</span>
+              <span className="composer-llm-pill-text">
+                {active ? truncateLabel(active.name) : 'Select a model'}
+              </span>
+              <ChevronDown size={13} />
             </button>
-          )}
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
-            onClick={onOpenSettings}
-            title="Manage LLM profiles"
-            aria-label="Settings"
-          >
-            <Settings2 size={15} />
-          </button>
+
+            {open ? (
+              <div className="composer-llm-menu" role="menu">
+                {profiles.length > 0 ? (
+                  <>
+                    <div className="composer-llm-menu-label">Available profiles</div>
+                    {profiles.map((p) => {
+                      const isCurrent = p.id === active?.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          role="menuitem"
+                          className={cn('composer-llm-option', isCurrent && 'active')}
+                          onClick={() => selectProfile(p.id)}
+                        >
+                          <span className="composer-llm-option-top">
+                            <span className="composer-llm-option-name">{p.name}</span>
+                            {isCurrent ? <Check size={14} /> : null}
+                          </span>
+                          <span className="composer-llm-option-meta">
+                            {p.provider}/{p.model}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    <div className="composer-llm-menu-divider" />
+                  </>
+                ) : (
+                  <div className="composer-llm-empty">No profiles yet</div>
+                )}
+                <button
+                  type="button"
+                  className="composer-llm-settings-link"
+                  onClick={() => {
+                    setOpen(false);
+                    onOpenSettings?.();
+                  }}
+                >
+                  <Settings2 size={14} />
+                  LLM profiles
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           <button
             type="button"
             className="btn-send"

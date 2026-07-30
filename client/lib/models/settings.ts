@@ -21,6 +21,7 @@ export type AppSettings = {
   defaultProvider: ProviderId;
   defaultModel: string;
   activeProfileId: string;
+  workspaceRoot: string;
   systemPrompt: string;
   condensationPrompt: string;
   maxAgentSteps: number;
@@ -41,6 +42,7 @@ export type SettingsUpdate = {
   defaultProvider?: ProviderId | string;
   defaultModel?: string;
   activeProfileId?: string;
+  workspaceRoot?: string;
   systemPrompt?: string;
   condensationPrompt?: string;
   maxAgentSteps?: number;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { FolderTree, Globe, Menu, PanelRight, SquareTerminal } from 'lucide-react';
+import { Globe, Menu, PanelRight } from 'lucide-react';
 import {
   approvalRepository,
   chatRepository,
@@ -51,6 +51,8 @@ import { ObservabilityPanel } from '@/components/features/observability/Observab
 import { PlaygroundPanel } from '@/components/features/playground/PlaygroundPanel';
 import { SettingsPanel } from '@/components/features/settings/SettingsPanel';
 import { ToolsPanel } from '@/components/features/tools/ToolsPanel';
+import { FilesPanel } from '@/components/features/workspace/FilesPanel';
+import { TerminalPanel } from '@/components/features/workspace/TerminalPanel';
 import { WorkflowsPanel } from '@/components/features/workflows/WorkflowsPanel';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -438,22 +440,10 @@ export function StudioApp() {
 
   const rightPanelContent = (() => {
     if (rightTab === 'files') {
-      return (
-        <WorkspacePlaceholder
-          icon={<FolderTree size={22} />}
-          title="Workspace files"
-          description="Sandboxed project tree lands next — browse, edit, and diff like OpenHands."
-        />
-      );
+      return <FilesPanel />;
     }
     if (rightTab === 'terminal') {
-      return (
-        <WorkspacePlaceholder
-          icon={<SquareTerminal size={22} />}
-          title="Terminal"
-          description="Agent bash sessions will stream here once the Docker workspace runtime ships."
-        />
-      );
+      return <TerminalPanel />;
     }
     if (rightTab === 'browser') {
       return (
@@ -463,8 +453,7 @@ export function StudioApp() {
           description="Live browser observations for agent navigation — MCP Playwright already connects today."
         />
       );
-    }
-    if (rightTab === 'timeline') {
+    }    if (rightTab === 'timeline') {
       return (
         <div className="pad stack">
           <PanelCard>

@@ -29,4 +29,11 @@ export const API_ROUTES = {
   observabilityMetrics: '/observability/metrics',
   chat: '/chat',
   settings: '/settings',
+  workspaceRoot: '/workspace',
+  workspaceTree: '/workspace/tree',
+  workspaceFile: '/workspace/file',
+  workspaceTerminal: '/workspace/terminal',
+  workspaceTerminalHistory: '/workspace/terminal/history',
+  workspaceGit: '/workspace/git',
+  workspaceSkills: '/workspace/skills',
 } as const;

@@ -9,6 +9,7 @@ export {
   settingsRepository,
   studioRepository,
   workflowRepository,
+  workspaceRepository,
 } from './repositories';
 
 /** Legacy aliases — prefer *Repository names */

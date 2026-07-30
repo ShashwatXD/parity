@@ -7,3 +7,4 @@ export { sessionRepository } from './sessionRepository';
 export { settingsRepository } from './settingsRepository';
 export { studioRepository } from './studioRepository';
 export { workflowRepository } from './workflowRepository';
+export { workspaceRepository } from './workspaceRepository';

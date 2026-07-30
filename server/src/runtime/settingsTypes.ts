@@ -3,7 +3,7 @@ import { DEFAULT_MODEL, DEFAULT_PROVIDER } from '../constants.js';
 import type { ProviderId } from '../llm/providers.js';
 
 export const DEFAULT_SYSTEM_PROMPT =
-  'You are Parity, an agent control plane with MCP tools. Use tools when they help. Prefer the conversation summary (if present) plus recent turns as memory. Be concise and precise. Structure final answers as clear markdown when useful.';
+  'You are Parity, a coding agent with a real workspace sandbox and MCP tools. Prefer workspace tools (file_editor, terminal, grep, git_status, task_tracker) for code work; use MCP when connected servers help. Trust each MCP tool’s own name, description, and schema — do not invent tools or outcomes. Report tool results accurately. For multi-step tasks, write a short task_tracker plan first. Prefer the conversation summary (if present) plus recent turns as memory. Be concise and precise. Structure final answers as clear markdown when useful.';
 
 export const DEFAULT_CONDENSATION_PROMPT =
   'You compress long agent chats into a durable memory brief. Preserve goals, decisions, file paths, tool outcomes, errors, and open todos. Omit chit-chat. Use tight markdown bullets.';
@@ -29,9 +29,10 @@ export const appSettingsSchema = z.object({
     .default(DEFAULT_PROVIDER),
   defaultModel: z.string().default(DEFAULT_MODEL),
   activeProfileId: z.string().optional().default(''),
+  workspaceRoot: z.string().optional().default(''),
   systemPrompt: z.string().default(DEFAULT_SYSTEM_PROMPT),
   condensationPrompt: z.string().default(DEFAULT_CONDENSATION_PROMPT),
-  maxAgentSteps: z.number().int().min(1).max(32).default(8),
+  maxAgentSteps: z.number().int().min(1).max(64).default(16),
   providers: z
     .object({
       openai: providerConfigSchema.default({}),
@@ -77,6 +78,7 @@ export type PublicAppSettings = {
   defaultProvider: ProviderId;
   defaultModel: string;
   activeProfileId: string;
+  workspaceRoot: string;
   systemPrompt: string;
   condensationPrompt: string;
   maxAgentSteps: number;
@@ -179,6 +181,7 @@ export function defaultSettings(): AppSettings {
     defaultProvider: DEFAULT_PROVIDER,
     defaultModel: DEFAULT_MODEL,
     activeProfileId: '',
+    workspaceRoot: '',
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     condensationPrompt: DEFAULT_CONDENSATION_PROMPT,
     maxAgentSteps: 8,
@@ -227,6 +230,7 @@ export function toPublicSettings(settings: AppSettings): PublicAppSettings {
     defaultProvider: ensured.defaultProvider,
     defaultModel: ensured.defaultModel,
     activeProfileId: ensured.activeProfileId ?? '',
+    workspaceRoot: ensured.workspaceRoot ?? '',
     systemPrompt: ensured.systemPrompt,
     condensationPrompt: ensured.condensationPrompt,
     maxAgentSteps: ensured.maxAgentSteps,
@@ -272,6 +276,7 @@ export function mergeSettingsPatch(
   }
   if (typeof patch.defaultModel === 'string') next.defaultModel = patch.defaultModel;
   if (typeof patch.activeProfileId === 'string') next.activeProfileId = patch.activeProfileId;
+  if (typeof patch.workspaceRoot === 'string') next.workspaceRoot = patch.workspaceRoot;
   if (typeof patch.systemPrompt === 'string') next.systemPrompt = patch.systemPrompt;
   if (typeof patch.condensationPrompt === 'string') {
     next.condensationPrompt = patch.condensationPrompt;

@@ -26,6 +26,11 @@ import {
   runWorkflow,
   type WorkflowGraph,
 } from '../runtime/workflows.js';
+import { listSkills } from '../agent/skills.js';
+import { listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile } from '../workspace/files.js';
+import { gitDiff, gitStatus } from '../workspace/git.js';
+import { getWorkspaceRoot } from '../workspace/paths.js';
+import { listTerminalHistory, runInWorkspace } from '../workspace/terminal.js';
 
 export const api = new Hono();
 
@@ -264,6 +269,85 @@ api.put(API_ROUTES.settings, async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   return c.json(updateSettings(body));
 });
+
+api.get(API_ROUTES.workspaceRoot, (c) =>
+  c.json({ root: getWorkspaceRoot() }),
+);
+
+api.get(API_ROUTES.workspaceTree, (c) => {
+  try {
+    const path = c.req.query('path') ?? '.';
+    const depth = Number(c.req.query('depth') ?? '3');
+    return c.json({
+      root: getWorkspaceRoot(),
+      tree: listWorkspaceTree(path, Number.isFinite(depth) ? depth : 3),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.get(API_ROUTES.workspaceFile, (c) => {
+  try {
+    const path = c.req.query('path');
+    if (!path) return c.json({ error: 'path is required' }, 400);
+    return c.json(readWorkspaceFile(path));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.put(API_ROUTES.workspaceFile, async (c) => {
+  try {
+    const body = z
+      .object({ path: z.string().min(1), content: z.string() })
+      .parse(await c.req.json());
+    return c.json(writeWorkspaceFile(body.path, body.content));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.get(API_ROUTES.workspaceTerminalHistory, (c) => {
+  const limit = Number(c.req.query('limit') ?? '40');
+  return c.json(listTerminalHistory(Number.isFinite(limit) ? limit : 40));
+});
+
+api.post(API_ROUTES.workspaceTerminal, async (c) => {
+  try {
+    const body = z
+      .object({
+        command: z.string().min(1),
+        timeoutMs: z.number().int().min(1000).max(120_000).optional(),
+      })
+      .parse(await c.req.json());
+    return c.json(await runInWorkspace(body));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.get(API_ROUTES.workspaceGit, async (c) => {
+  const includeDiff = c.req.query('diff') === '1';
+  const status = await gitStatus();
+  if (!includeDiff) return c.json(status);
+  const diff = await gitDiff(c.req.query('staged') === '1');
+  return c.json({ ...status, ...diff });
+});
+
+api.get(API_ROUTES.workspaceSkills, (c) =>
+  c.json(
+    listSkills().map((s) => ({
+      name: s.name,
+      description: s.description,
+      triggers: s.triggers,
+    })),
+  ),
+);
 
 api.post(API_ROUTES.chat, async (c) => {
   try {
