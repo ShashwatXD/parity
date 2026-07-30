@@ -1,4 +1,4 @@
-export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'ollama';
+export type ProviderId = 'openai' | 'anthropic' | 'gemini' | 'ollama' | 'custom';
 
 export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 

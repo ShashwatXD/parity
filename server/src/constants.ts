@@ -28,6 +28,7 @@ export const API_ROUTES = {
   health: '/health',
   sessions: '/sessions',
   session: (id: string) => `/sessions/${id}`,
+  sessionContext: (id: string) => `/sessions/${id}/context`,
   search: '/search',
   mcpConnections: '/mcp/connections',
   mcpConnect: '/mcp/connect',
@@ -49,6 +50,7 @@ export const API_ROUTES = {
   observabilityEvents: '/observability/events',
   observabilityMetrics: '/observability/metrics',
   chat: '/chat',
+  settings: '/settings',
 } as const;
 
 export const CORS_ORIGINS = [

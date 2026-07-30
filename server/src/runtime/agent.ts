@@ -1,10 +1,16 @@
 import { jsonSchema, stepCountIs, streamText, tool, type ModelMessage, type ToolSet } from 'ai';
-import { getModel, type ProviderId } from '../llm/providers.js';
+import { getModelForProfile } from '../llm/providers.js';
 import { mcpManager } from '../mcp/manager.js';
 import { estimateCostUsd } from '../observability/cost.js';
 import { recordEvent, startRun } from '../observability/timeline.js';
 import { createArtifact } from './artifacts.js';
-import { addMessage, listMessages } from './sessions.js';
+import {
+  buildContextSnapshot,
+  maybeCondenseSession,
+  messagesForModel,
+} from './contextWindow.js';
+import { getMaxAgentSteps, getSystemPrompt } from './settings.js';
+import { addMessage } from './sessions.js';
 
 function jsonSchemaFromMcp(inputSchema: unknown) {
   const schema =
@@ -28,8 +34,8 @@ async function buildMcpTools(runId: string, sessionId: string): Promise<ToolSet>
         try {
           const result = await mcpManager.callTool(item.connectionId, item.name, args);
           const latencyMs = Date.now() - started;
-          const preview =
-            typeof result === 'string' ? result.slice(0, 2000) : JSON.stringify(result).slice(0, 2000);
+          const raw = typeof result === 'string' ? result : JSON.stringify(result ?? null);
+          const preview = raw.slice(0, 2000);
           addMessage({
             sessionId,
             role: 'tool',
@@ -76,16 +82,25 @@ async function buildMcpTools(runId: string, sessionId: string): Promise<ToolSet>
 export async function runAgentTurn(input: {
   sessionId: string;
   userMessage: string;
-  provider: ProviderId;
-  model: string;
+  profileId?: string;
 }) {
+  const active = getModelForProfile(input.profileId);
+  const provider = active.provider;
+  const modelId = active.modelId;
+
   const { runId } = startRun(input.sessionId);
   recordEvent({
     runId,
     sessionId: input.sessionId,
     kind: 'user_prompt',
     label: 'User Prompt',
-    detail: { message: input.userMessage, provider: input.provider, model: input.model },
+    detail: {
+      message: input.userMessage,
+      provider,
+      model: modelId,
+      profileId: active.profile?.id,
+      profileName: active.profile?.name,
+    },
   });
 
   addMessage({
@@ -94,13 +109,45 @@ export async function runAgentTurn(input: {
     content: input.userMessage,
   });
 
-  const history = listMessages(input.sessionId);
-  const modelMessages: ModelMessage[] = history
-    .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'system')
-    .map((m) => ({
-      role: m.role as 'user' | 'assistant' | 'system',
-      content: m.content,
-    }));
+  const before = buildContextSnapshot({
+    sessionId: input.sessionId,
+    provider,
+    model: modelId,
+  });
+  recordEvent({
+    runId,
+    sessionId: input.sessionId,
+    kind: 'context',
+    label: 'Context window',
+    detail: before,
+  });
+
+  const condensation = await maybeCondenseSession({
+    sessionId: input.sessionId,
+    provider,
+    model: modelId,
+    profileId: active.profile?.id,
+    runId,
+  });
+  if (condensation.condensed) {
+    recordEvent({
+      runId,
+      sessionId: input.sessionId,
+      kind: 'condensation',
+      label: 'Conversation summarized',
+      detail: {
+        beforeTokens: before.usedTokens,
+        afterTokens: condensation.snapshot.usedTokens,
+        preview: condensation.summary?.slice(0, 280),
+      },
+    });
+  }
+
+  const history = messagesForModel(input.sessionId);
+  const modelMessages: ModelMessage[] = history.map((m) => ({
+    role: m.role as 'user' | 'assistant' | 'system',
+    content: m.content,
+  }));
 
   const discoveredTools = await mcpManager.listTools();
   recordEvent({
@@ -119,12 +166,11 @@ export async function runAgentTurn(input: {
   let stepIndex = 0;
 
   const result = streamText({
-    model: getModel(input.provider, input.model),
-    system:
-      'You are Parity MCP Studio. Use connected MCP tools when they help answer the user. Be concise and precise. When useful, structure final answers as clear markdown.',
+    model: active.model,
+    system: getSystemPrompt(),
     messages: modelMessages,
     tools,
-    stopWhen: stepCountIs(8),
+    stopWhen: stepCountIs(getMaxAgentSteps()),
     maxRetries: 2,
     onStepFinish: async ({ toolCalls, toolResults, finishReason, usage }) => {
       stepIndex += 1;
@@ -149,8 +195,8 @@ export async function runAgentTurn(input: {
       const promptTokens = usage?.inputTokens ?? 0;
       const completionTokens = usage?.outputTokens ?? 0;
       const costUsd = estimateCostUsd({
-        provider: input.provider,
-        model: input.model,
+        provider,
+        model: modelId,
         promptTokens,
         completionTokens,
       });

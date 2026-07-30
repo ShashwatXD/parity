@@ -113,5 +113,11 @@ export function migrate() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id TEXT PRIMARY KEY CHECK (id = 'default'),
+      json TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 }

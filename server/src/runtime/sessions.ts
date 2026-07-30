@@ -35,6 +35,7 @@ export function addMessage(input: {
   tokensCompletion?: number;
   latencyMs?: number;
   costUsd?: number;
+  createdAt?: number;
 }): Message {
   return MessageRepository.create(input);
 }

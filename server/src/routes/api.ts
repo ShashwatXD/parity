@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { API_ROUTES, DEFAULT_MODEL, DEFAULT_PROVIDER, HEADER_RUN_ID, SERVICE_NAME } from '../constants.js';
+import { API_ROUTES, HEADER_RUN_ID, SERVICE_NAME } from '../constants.js';
 import { connectInputSchema, mcpManager } from '../mcp/manager.js';
 import { providerSchema } from '../llm/providers.js';
 import { listPlugins } from '../plugins/pluginSdk.js';
@@ -9,7 +9,9 @@ import { McpConnectionRepository } from '../repositories/mcpConnectionRepository
 import { SessionRepository } from '../repositories/sessionRepository.js';
 import { listArtifacts } from '../runtime/artifacts.js';
 import { runAgentTurn } from '../runtime/agent.js';
+import { buildContextSnapshot } from '../runtime/contextWindow.js';
 import { enqueueJob, listJobs } from '../runtime/jobs.js';
+import { getPublicSettings, updateSettings } from '../runtime/settings.js';
 import {
   createSession,
   deleteSession,
@@ -50,6 +52,20 @@ api.get('/sessions/:id', (c) => {
   const session = getSession(c.req.param('id'));
   if (!session) return c.json({ error: 'Session not found' }, 404);
   return c.json({ ...session, messages: listMessages(session.id) });
+});
+
+api.get('/sessions/:id/context', (c) => {
+  const session = getSession(c.req.param('id'));
+  if (!session) return c.json({ error: 'Session not found' }, 404);
+  const provider = c.req.query('provider') ?? session.provider;
+  const model = c.req.query('model') ?? session.model;
+  return c.json(
+    buildContextSnapshot({
+      sessionId: session.id,
+      provider,
+      model,
+    }),
+  );
 });
 
 api.delete('/sessions/:id', (c) => {
@@ -242,14 +258,22 @@ api.get(API_ROUTES.observabilityEvents, (c) => {
 
 api.get(API_ROUTES.observabilityMetrics, (c) => c.json(metricsSummary()));
 
+api.get(API_ROUTES.settings, (c) => c.json(getPublicSettings()));
+
+api.put(API_ROUTES.settings, async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+  return c.json(updateSettings(body));
+});
+
 api.post(API_ROUTES.chat, async (c) => {
   try {
     const body = z
       .object({
         sessionId: z.string().min(1),
         message: z.string().min(1),
-        provider: providerSchema.default(DEFAULT_PROVIDER),
-        model: z.string().default(DEFAULT_MODEL),
+        profileId: z.string().optional(),
+        provider: providerSchema.optional(),
+        model: z.string().optional(),
       })
       .parse(await c.req.json());
 
@@ -259,8 +283,7 @@ api.post(API_ROUTES.chat, async (c) => {
     const { result, runId } = await runAgentTurn({
       sessionId: body.sessionId,
       userMessage: body.message,
-      provider: body.provider,
-      model: body.model,
+      profileId: body.profileId,
     });
 
     const response = result.toUIMessageStreamResponse();

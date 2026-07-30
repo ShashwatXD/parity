@@ -5,67 +5,37 @@
       "name": "Server",
       "type": "node",
       "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "--env-file=../.env", "src/main.ts"],
       "cwd": "${workspaceFolder}/server",
-      "program": "${workspaceFolder}/server/index.js",
-      "envFile": "${workspaceFolder}/server/.env",
       "console": "integratedTerminal",
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Client (Vite)",
+      "name": "Client",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "cwd": "${workspaceFolder}/client",
       "console": "integratedTerminal",
-      "serverReadyAction": {
-        "pattern": "Local:\\s+(https?://\\S+)",
-        "uriFormat": "%s",
-        "action": "debugWithChrome"
-      },
       "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Full stack (concurrently)",
+      "name": "Full stack",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "serverReadyAction": {
-        "pattern": "Local:\\s+(https?://\\S+)",
-        "uriFormat": "%s",
-        "action": "openExternally"
-      }
-    },
-    {
-      "name": "Chrome: Parity UI",
-      "type": "chrome",
-      "request": "launch",
-      "url": "http://localhost:3000",
-      "webRoot": "${workspaceFolder}/client/src"
+      "console": "integratedTerminal"
     }
   ],
   "compounds": [
     {
-      "name": "Parity: Server + Client",
-      "configurations": ["Server", "Client (Vite)"],
-      "stopAll": true,
-      "presentation": {
-        "order": 1,
-        "group": "parity"
-      }
-    },
-    {
-      "name": "Parity: Server + Chrome",
-      "configurations": ["Server", "Chrome: Parity UI"],
-      "stopAll": true,
-      "presentation": {
-        "order": 2,
-        "group": "parity"
-      }
+      "name": "Server + Client",
+      "configurations": ["Server", "Client"],
+      "stopAll": true
     }
   ]
 }

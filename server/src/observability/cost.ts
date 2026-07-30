@@ -17,7 +17,7 @@ export function estimateCostUsd(input: {
   const key = `${input.provider}:${input.model}`;
   const rates =
     RATES[key] ??
-    (input.provider === 'ollama'
+    (input.provider === 'ollama' || input.provider === 'custom'
       ? RATES['ollama:default']
       : { input: 0.5, output: 1.5 });
   const cost =

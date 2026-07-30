@@ -47,7 +47,6 @@ export const SessionRepository = {
     sqlite.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`).run(Date.now(), id);
   },
 
-  /** Deletes session; messages cascade via FK ON DELETE CASCADE. */
   delete(id: string): boolean {
     const result = sqlite.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
     return Number(result.changes) > 0;
@@ -77,6 +76,7 @@ export const MessageRepository = {
     tokensCompletion?: number;
     latencyMs?: number;
     costUsd?: number;
+    createdAt?: number;
   }): Message {
     const row: Message = {
       id: createId('message'),
@@ -89,7 +89,7 @@ export const MessageRepository = {
       tokensCompletion: input.tokensCompletion ?? 0,
       latencyMs: input.latencyMs ?? 0,
       costUsd: input.costUsd ?? 0,
-      createdAt: Date.now(),
+      createdAt: input.createdAt ?? Date.now(),
     };
     sqlite
       .prepare(
@@ -113,5 +113,14 @@ export const MessageRepository = {
       );
     SessionRepository.touch(input.sessionId);
     return row;
+  },
+
+  deleteMany(ids: string[]): number {
+    if (!ids.length) return 0;
+    const placeholders = ids.map(() => '?').join(', ');
+    const result = sqlite
+      .prepare(`DELETE FROM messages WHERE id IN (${placeholders})`)
+      .run(...ids);
+    return Number(result.changes);
   },
 };

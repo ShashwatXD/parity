@@ -25,7 +25,7 @@ export async function apiGet<T>(path: string): Promise<T> {
 export async function apiSend<T>(
   path: string,
   init: {
-    method: 'POST' | 'DELETE';
+    method: 'POST' | 'DELETE' | 'PATCH' | 'PUT';
     body?: unknown;
   },
 ): Promise<T> {
@@ -39,10 +39,7 @@ export async function apiSend<T>(
   return res.json() as Promise<T>;
 }
 
-export async function apiStream(
-  path: string,
-  body: unknown,
-): Promise<Response> {
+export async function apiStream(path: string, body: unknown): Promise<Response> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

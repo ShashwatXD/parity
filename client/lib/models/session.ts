@@ -1,0 +1,64 @@
+import type { MessageRole, ProviderId } from './common';
+
+export type Session = {
+  id: string;
+  title: string;
+  provider: string;
+  model: string;
+  createdAt?: number;
+  updatedAt?: number;
+};
+
+export type Message = {
+  id: string;
+  role: MessageRole | string;
+  content: string;
+  toolName?: string | null;
+  toolCallId?: string | null;
+  tokensPrompt?: number;
+  tokensCompletion?: number;
+  latencyMs?: number;
+  costUsd?: number;
+  createdAt?: number;
+};
+
+export type SessionDetail = Session & {
+  messages: Message[];
+};
+
+export type CreateSessionInput = {
+  title?: string;
+  provider?: ProviderId | string;
+  model?: string;
+};
+
+export type ChatSendInput = {
+  sessionId: string;
+  message: string;
+  profileId?: string;
+  provider?: string;
+  model?: string;
+};
+
+export type ChatSendResult = {
+  response: Response;
+  runId: string;
+};
+
+export type ContextSnapshot = {
+  sessionId: string;
+  model: string;
+  provider: string;
+  limitTokens: number;
+  reserveTokens: number;
+  budgetTokens: number;
+  usedTokens: number;
+  remainingTokens: number;
+  percentUsed: number;
+  softLimitTokens: number;
+  overSoftLimit: boolean;
+  messageCount: number;
+  estimated: true;
+  condensed: boolean;
+  summaryPreview?: string;
+};
