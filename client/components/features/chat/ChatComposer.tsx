@@ -60,13 +60,14 @@ export function ChatComposer({
   }
 
   return (
-    <div className="composer-wrap">
+    <div className="composer-wrap" data-testid="chat-composer">
       <div className="composer-box">
         <textarea
           value={value}
           placeholder="Ask Parity to build, debug, or drive MCP tools…"
           rows={2}
           disabled={busy}
+          data-testid="chat-input"
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -83,6 +84,7 @@ export function ChatComposer({
               disabled={busy}
               aria-haspopup="menu"
               aria-expanded={open}
+              data-testid="llm-picker"
               onClick={() => setOpen((v) => !v)}
             >
               <span className="composer-llm-pill-text">
@@ -142,6 +144,7 @@ export function ChatComposer({
             disabled={busy || !value.trim() || !active}
             onClick={onSend}
             aria-label="Send"
+            data-testid="chat-send"
           >
             <ArrowUp size={16} />
           </button>

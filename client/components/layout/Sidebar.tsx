@@ -55,7 +55,7 @@ export function Sidebar({
 }: Props) {
   return (
     <aside className={cn('sidebar', collapsed && 'is-collapsed')}>
-      <div className="sidebar-header">
+      <div className="sidebar-header" data-testid="app-brand">
         <span className="brand-mark">{PRODUCT_MARK}</span>
         <div className="brand-text sidebar-expanded-only">
           <span className="brand-name">{PRODUCT_NAME}</span>
@@ -64,7 +64,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-section">
-        <Button variant="primary" onClick={onNewChat} className="sidebar-new-btn">
+        <Button variant="primary" onClick={onNewChat} className="sidebar-new-btn" data-testid="new-chat">
           <Plus size={14} />
           <span className="sidebar-expanded-only">New conversation</span>
         </Button>
@@ -110,6 +110,7 @@ export function Sidebar({
             className={cn('nav-item', active === item.id && 'active')}
             onClick={() => onNavigate(item.id)}
             title={item.label}
+            data-testid={`nav-${item.id}`}
           >
             {NAV_ICONS[item.id]}
             <span className="nav-item-label sidebar-expanded-only">{item.label}</span>
