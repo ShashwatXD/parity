@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=../.env src/main.ts",
-    "start": "node --env-file=../.env dist/main.js",
+    "start": "node dist/main.js",
+    "start:local": "node --env-file=../.env dist/main.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test src/tests/*.test.ts"

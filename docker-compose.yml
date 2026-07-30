@@ -1,19 +1,25 @@
 services:
   api:
-    build: .
+    build:
+      context: .
     ports:
       - "5005:5005"
     env_file:
       - .env
+    environment:
+      # After you know the Vercel URL, set CORS_ORIGINS in .env
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     volumes:
       - parity-data:/app/server/.data
   web:
-    build: .
+    build:
+      context: .
+      args:
+        # Browser must reach the API — use your public API URL when not on localhost
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5005/api}
     command: ["npm", "run", "start", "--prefix", "client"]
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:5005/api
     depends_on:
       - api
 

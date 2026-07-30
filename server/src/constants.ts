@@ -67,9 +67,17 @@ export const API_ROUTES = {
   workspaceSkills: '/skills',
 } as const;
 
-export const CORS_ORIGINS = [
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-] as const;
+const LOCAL_CORS = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
+function corsFromEnv(): string[] {
+  const raw = process.env.CORS_ORIGINS?.trim() || process.env.CORS_ORIGIN?.trim() || '';
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export const CORS_ORIGINS: string[] = [...new Set([...LOCAL_CORS, ...corsFromEnv()])];
 
 export const HEADER_RUN_ID = 'X-Parity-Run-Id';
