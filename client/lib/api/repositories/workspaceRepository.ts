@@ -36,6 +36,32 @@ export const workspaceRepository = {
       method: 'PUT',
       body: { path, content },
     }),
+  /** OpenHands-style: browser-selected folder files → API sandbox */
+  sync: (files: Array<{ path: string; content: string }>, name?: string) =>
+    apiSend<{ root: string; fileCount: number; bytes: number }>(API_ROUTES.workspaceSync, {
+      method: 'POST',
+      body: { files, name },
+    }),
+  browse: (path?: string) =>
+    apiGet<{
+      path: string;
+      parent: string | null;
+      entries: Array<{ name: string; path: string; kind: 'file' | 'dir' }>;
+    }>(
+      path
+        ? `${API_ROUTES.workspaceBrowse}?path=${encodeURIComponent(path)}`
+        : API_ROUTES.workspaceBrowse,
+    ),
+  useDirectory: (path: string) =>
+    apiSend<{ root: string }>(API_ROUTES.workspaceUse, {
+      method: 'POST',
+      body: { path },
+    }),
+  pick: () =>
+    apiSend<{ root: string }>(API_ROUTES.workspacePick, {
+      method: 'POST',
+      body: {},
+    }),
   run: (command: string, timeoutMs?: number) =>
     apiSend<TerminalEntry>(API_ROUTES.workspaceTerminal, {
       method: 'POST',

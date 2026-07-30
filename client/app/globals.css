@@ -431,6 +431,88 @@ code, .mono { font-family: var(--parity-mono); }
   background: var(--parity-base-secondary);
 }
 
+.workspace-path-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--parity-border-subtle);
+  background: var(--parity-base-secondary);
+}
+
+.workspace-callout {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  border-bottom: 1px solid var(--parity-border-subtle);
+  background: color-mix(in srgb, var(--parity-accent, #3b82f6) 12%, var(--parity-base-secondary));
+  color: var(--parity-text);
+}
+
+.workspace-picker {
+  border-bottom: 1px solid var(--parity-border-subtle);
+  background: var(--parity-base);
+  max-height: 220px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.workspace-picker-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--parity-border-subtle);
+}
+
+.workspace-picker-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.workspace-picker-list {
+  overflow: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+
+.workspace-path-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--parity-border-subtle);
+  background: var(--parity-base);
+  color: var(--parity-text);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: var(--parity-mono, ui-monospace, monospace);
+}
+
+.files-path-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--parity-border-subtle);
+  background: var(--parity-base);
+  color: var(--parity-text);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.files-path-btn.secondary {
+  opacity: 0.85;
+}
+
+.files-path-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .files-panel-meta {
   display: flex;
   flex-direction: column;
@@ -453,6 +535,13 @@ code, .mono { font-family: var(--parity-mono); }
   padding: 6px 10px;
   font-size: 11px;
   color: var(--parity-danger);
+  border-bottom: 1px solid var(--parity-border-subtle);
+}
+
+.files-panel-ok {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--parity-success, #2a7);
   border-bottom: 1px solid var(--parity-border-subtle);
 }
 

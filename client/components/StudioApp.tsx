@@ -20,6 +20,7 @@ import {
   type PublicMcpPreset,
 } from '@/lib/constants';
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
+import { notifyWorkspaceChanged } from '@/lib/workspace/events';
 import type {
   Approval,
   Artifact,
@@ -376,7 +377,15 @@ export function StudioApp() {
       setLastRunId(runId);
       const poll = window.setInterval(() => {
         if (!runId) return;
-        void observabilityRepository.events(runId).then((ev) => setRunEvents(ev)).catch(() => undefined);
+        void observabilityRepository.events(runId).then((ev) => {
+          setRunEvents(ev);
+          const touchedFs = ev.some(
+            (e) =>
+              /file_editor|terminal|write|glob/i.test(e.label) ||
+              /file_editor|terminal/i.test(e.kind),
+          );
+          if (touchedFs) notifyWorkspaceChanged();
+        }).catch(() => undefined);
         void sessionRepository.get(id).then((s) => {
           if (s.messages?.length) setMessages(s.messages);
         }).catch(() => undefined);
@@ -416,6 +425,7 @@ export function StudioApp() {
       setStreaming('');
       await refresh();
       await refreshContext(id);
+      notifyWorkspaceChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

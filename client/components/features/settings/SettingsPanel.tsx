@@ -804,9 +804,9 @@ export function SettingsPanel({ onSaved }: Props) {
             <div className="stack">
               <strong>Sandbox root</strong>
               <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-                Absolute path the agent may read, write, and shell into. Leave empty to use{' '}
-                <span className="mono">server/.data/workspace</span> (or{' '}
-                <span className="mono">PARITY_WORKSPACE</span>).
+                Prefer <strong>Files → Select folder</strong> (native dialog on the API host).
+                Absolute path only if the API can see it. Empty →{' '}
+                <span className="mono">server/.data/workspace</span>.
               </p>
               <Field label="Workspace path">
                 <Input

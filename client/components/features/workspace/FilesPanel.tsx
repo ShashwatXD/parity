@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronRight, Database, File, Folder, RefreshCw, Search } from 'lucide-react';
+import { ChevronRight, Database, File, Folder, FolderOpen, RefreshCw, Search } from 'lucide-react';
 import { ragRepository, type RagStatus } from '@/lib/api/repositories/ragRepository';
+import { settingsRepository } from '@/lib/api/repositories/settingsRepository';
 import {
   workspaceRepository,
   type WorkspaceNode,
 } from '@/lib/api/repositories/workspaceRepository';
+import { canPickDirectory, pickWorkspaceDirectory } from '@/lib/workspace/pickDirectory';
+import { subscribeWorkspaceChanged } from '@/lib/workspace/events';
 import { cn } from '@/lib/utils/cn';
 
 function TreeNode({
@@ -54,19 +57,32 @@ function TreeNode({
   );
 }
 
+function countFiles(node: WorkspaceNode | null): number {
+  if (!node) return 0;
+  if (node.kind === 'file') return 1;
+  return (node.children ?? []).reduce((n, c) => n + countFiles(c), 0);
+}
+
 export function FilesPanel() {
   const [root, setRoot] = useState('');
+  const [pathDraft, setPathDraft] = useState('');
   const [tree, setTree] = useState<WorkspaceNode | null>(null);
   const [selected, setSelected] = useState('.');
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
+  const [ok, setOk] = useState('');
   const [loading, setLoading] = useState(false);
+  const [savingPath, setSavingPath] = useState(false);
+  const [selecting, setSelecting] = useState(false);
   const [indexing, setIndexing] = useState(false);
   const [rag, setRag] = useState<RagStatus | null>(null);
   const [ragQuery, setRagQuery] = useState('');
   const [ragHits, setRagHits] = useState<
     Array<{ path: string; startLine: number; endLine: number; score: number; content: string }>
   >([]);
+
+  const fileCount = countFiles(tree);
+  const needsWorkspace = fileCount <= 1;
 
   const refreshRag = useCallback(async () => {
     try {
@@ -82,6 +98,7 @@ export function FilesPanel() {
     try {
       const data = await workspaceRepository.tree('.', 4);
       setRoot(data.root);
+      setPathDraft(data.root);
       setTree(data.tree);
       await refreshRag();
     } catch (e) {
@@ -94,6 +111,70 @@ export function FilesPanel() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => subscribeWorkspaceChanged(() => void refresh()), [refresh]);
+
+  // Rebuild tree while the panel is open (agent file_editor / terminal writes)
+  useEffect(() => {
+    const t = window.setInterval(() => void refresh(), 2500);
+    return () => window.clearInterval(t);
+  }, [refresh]);
+
+  async function applyWorkspacePath(next: string) {
+    setSavingPath(true);
+    setError('');
+    setOk('');
+    try {
+      await settingsRepository.update({ workspaceRoot: next.trim() });
+      setSelected('.');
+      setContent('');
+      setRagHits([]);
+      await refresh();
+      setOk(next.trim() ? 'Workspace path updated' : 'Using default workspace');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingPath(false);
+    }
+  }
+
+  async function selectFolder() {
+    setSelecting(true);
+    setError('');
+    setOk('');
+    try {
+      // Prefer native dialog on the API host → real path like /Users/…/Desktop/bruno
+      const res = await workspaceRepository.pick();
+      setPathDraft(res.root);
+      setRoot(res.root);
+      setSelected('.');
+      setContent('');
+      setRagHits([]);
+      await refresh();
+      setOk(`Workspace: ${res.root}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/cancel/i.test(msg)) return;
+      // Remote API / no GUI: fall back to browser picker + sync copy
+      try {
+        if (!canPickDirectory()) throw e;
+        const picked = await pickWorkspaceDirectory();
+        const res = await workspaceRepository.sync(picked.files, picked.name);
+        setPathDraft(res.root);
+        setRoot(res.root);
+        setSelected('.');
+        setContent('');
+        setRagHits([]);
+        await refresh();
+        setOk(`Workspace synced “${picked.name}” (${res.fileCount} files) — copy on API host`);
+      } catch (e2) {
+        if (e2 instanceof DOMException && e2.name === 'AbortError') return;
+        setError(e2 instanceof Error ? e2.message : String(e2));
+      }
+    } finally {
+      setSelecting(false);
+    }
+  }
 
   async function onSelect(node: WorkspaceNode) {
     setSelected(node.path);
@@ -118,7 +199,7 @@ export function FilesPanel() {
     try {
       const status = await ragRepository.index(true);
       setRag(status);
-      if (status.lastError) setError(`Indexed with lexical fallback: ${status.lastError}`);
+      if (status.lastError) setError(status.lastError);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -147,9 +228,9 @@ export function FilesPanel() {
     <div className="files-panel">
       <div className="files-panel-toolbar">
         <div className="files-panel-meta">
-          <strong>Files</strong>
+          <strong>Workspace</strong>
           <span className="mono dim" title={root}>
-            {root ? root.replace(/.*\//, '…/') : '…'}
+            {root || '…'}
           </span>
           {rag ? (
             <span className="mono dim">
@@ -163,7 +244,7 @@ export function FilesPanel() {
             className="icon-btn"
             onClick={() => void reindex()}
             title="Reindex workspace for RAG"
-            disabled={indexing}
+            disabled={indexing || needsWorkspace}
           >
             <Database size={14} className={indexing ? 'spin' : undefined} />
           </button>
@@ -173,6 +254,47 @@ export function FilesPanel() {
         </div>
       </div>
 
+      <div className="workspace-path-row">
+        <button
+          type="button"
+          className="files-path-btn"
+          disabled={selecting || !canPickDirectory()}
+          title="Open system folder dialog"
+          onClick={() => void selectFolder()}
+        >
+          <FolderOpen size={13} style={{ marginRight: 4, verticalAlign: '-2px' }} />
+          {selecting ? 'Loading…' : 'Select folder'}
+        </button>
+      </div>
+
+      <form
+        className="workspace-path-row"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          void applyWorkspacePath(pathDraft);
+        }}
+      >
+        <Folder size={13} />
+        <input
+          value={pathDraft}
+          onChange={(e) => setPathDraft(e.target.value)}
+          placeholder="Or absolute path on API host → Set"
+          spellCheck={false}
+          title={root || 'Workspace root'}
+        />
+        <button type="submit" className="files-path-btn" disabled={savingPath}>
+          {savingPath ? '…' : 'Set'}
+        </button>
+        <button
+          type="button"
+          className="files-path-btn secondary"
+          disabled={savingPath}
+          onClick={() => void applyWorkspacePath('')}
+        >
+          Default
+        </button>
+      </form>
+
       <form className="rag-search-row" onSubmit={(ev) => void runRagSearch(ev)}>
         <Search size={13} />
         <input
@@ -180,17 +302,25 @@ export function FilesPanel() {
           onChange={(e) => setRagQuery(e.target.value)}
           placeholder="RAG search workspace…"
           spellCheck={false}
+          disabled={needsWorkspace}
         />
-        <button type="submit" className="icon-btn" title="Search">
+        <button type="submit" className="icon-btn" title="Search" disabled={needsWorkspace}>
           <Search size={13} />
         </button>
       </form>
 
       {error ? <div className="files-panel-error">{error}</div> : null}
+      {ok ? <div className="files-panel-ok">{ok}</div> : null}
       <div className="files-panel-split">
         <div className="files-panel-tree">
           {tree ? (
-            <TreeNode node={tree} depth={0} selected={selected} onSelect={(n) => void onSelect(n)} />
+            <TreeNode
+              key={`${root}:${fileCount}:${tree.children?.length ?? 0}`}
+              node={tree}
+              depth={0}
+              selected={selected}
+              onSelect={(n) => void onSelect(n)}
+            />
           ) : (
             <p className="muted pad-sm">Loading workspace…</p>
           )}
@@ -221,8 +351,9 @@ export function FilesPanel() {
             <pre className="files-preview-code">{content}</pre>
           ) : (
             <p className="muted pad-sm">
-              Select a file, or set embedding key (Settings → Workspace) → Reindex → RAG search.
-              Agent tool: <span className="mono">codebase_search</span> (vector-only).
+              {needsWorkspace
+                ? 'Select folder (system dialog), then chat / Reindex.'
+                : 'Select a file, or Reindex → RAG search.'}
             </p>
           )}
         </div>

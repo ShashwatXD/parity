@@ -30,9 +30,12 @@ import { buildEvalDashboard, runEvalSuite } from '../eval/runner.js';
 import { getRagStatus, indexWorkspace } from '../rag/indexer.js';
 import { searchCodebase } from '../rag/retrieve.js';
 import { deleteSkill, listSkillInfos, writeSkill } from '../agent/skills.js';
+import { browseHostDirectory, useHostDirectory } from '../workspace/browse.js';
 import { listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile } from '../workspace/files.js';
 import { gitDiff, gitStatus } from '../workspace/git.js';
 import { getWorkspaceRoot } from '../workspace/paths.js';
+import { pickNativeDirectory } from '../workspace/pickNative.js';
+import { syncWorkspaceFromUpload } from '../workspace/sync.js';
 import { listTerminalHistory, runInWorkspace } from '../workspace/terminal.js';
 
 export const api = new Hono();
@@ -309,6 +312,49 @@ api.put(API_ROUTES.settings, async (c) => {
 api.get(API_ROUTES.workspaceRoot, (c) =>
   c.json({ root: getWorkspaceRoot() }),
 );
+
+api.post(API_ROUTES.workspaceSync, async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => ({}))) as {
+      name?: string;
+      files?: Array<{ path: string; content: string }>;
+    };
+    const result = syncWorkspaceFromUpload(body.files ?? [], { name: body.name });
+    return c.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.get(API_ROUTES.workspaceBrowse, (c) => {
+  try {
+    return c.json(browseHostDirectory(c.req.query('path') ?? undefined));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.post(API_ROUTES.workspaceUse, async (c) => {
+  try {
+    const body = (await c.req.json().catch(() => ({}))) as { path?: string };
+    return c.json(useHostDirectory(String(body.path ?? '')));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.post(API_ROUTES.workspacePick, async (c) => {
+  try {
+    return c.json(await pickNativeDirectory());
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const cancelled = /cancel/i.test(message);
+    return c.json({ error: message }, cancelled ? 400 : 500);
+  }
+});
 
 api.get(API_ROUTES.workspaceTree, (c) => {
   try {

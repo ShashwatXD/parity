@@ -1,5 +1,7 @@
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 COPY server/package.json server/
 COPY client/package.json client/
@@ -11,12 +13,15 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY --from=deps /app/client/node_modules ./client/node_modules
 COPY . .
+# Bake public API URL into the Next bundle (override for remote hosts).
 ARG NEXT_PUBLIC_API_URL=http://localhost:5005/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build --prefix server && npm run build --prefix client
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 ENV PORT=5005
 COPY --from=build /app/server/dist ./server/dist
