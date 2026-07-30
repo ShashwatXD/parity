@@ -11,6 +11,7 @@ import { getWorkspaceRoot } from '../workspace/paths.js';
 import { globWorkspace, grepWorkspace } from '../workspace/search.js';
 import { runInWorkspace } from '../workspace/terminal.js';
 import { formatPlanMarkdown, setPlan, upsertTask, viewPlan } from './taskTracker.js';
+import { formatHitsForAgent, searchCodebase } from '../rag/retrieve.js';
 
 function ok(data: unknown) {
   return typeof data === 'string' ? data : JSON.stringify(data, null, 2);
@@ -115,6 +116,23 @@ export function buildWorkspaceTools(sessionId: string): ToolSet {
               maxMatches: args.max_matches,
             }),
           );
+        } catch (e) {
+          return fail(e);
+        }
+      },
+    }),
+
+    codebase_search: tool({
+      description:
+        'RAG semantic search (Voyage voyage-code-3 by default — LLM-agnostic code embeddings). Reindex in Files after changes. Requires VOYAGE_API_KEY / EMBEDDING_API_KEY.',
+      inputSchema: z.object({
+        query: z.string().describe('Natural language or keyword query'),
+        limit: z.number().int().min(1).max(20).optional(),
+      }),
+      execute: async (args) => {
+        try {
+          const result = await searchCodebase(args.query, args.limit ?? 8);
+          return formatHitsForAgent(result);
         } catch (e) {
           return fail(e);
         }

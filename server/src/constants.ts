@@ -49,15 +49,22 @@ export const API_ROUTES = {
   plugins: '/plugins',
   observabilityEvents: '/observability/events',
   observabilityMetrics: '/observability/metrics',
+  evals: '/evals',
+  evalsRun: '/evals/run',
+  ragStatus: '/rag/status',
+  ragIndex: '/rag/index',
+  ragSearch: '/rag/search',
   chat: '/chat',
   settings: '/settings',
+  skills: '/skills',
   workspaceRoot: '/workspace',
   workspaceTree: '/workspace/tree',
   workspaceFile: '/workspace/file',
   workspaceTerminal: '/workspace/terminal',
   workspaceTerminalHistory: '/workspace/terminal/history',
   workspaceGit: '/workspace/git',
-  workspaceSkills: '/workspace/skills',
+  /** @deprecated use skills */
+  workspaceSkills: '/skills',
 } as const;
 
 export const CORS_ORIGINS = [

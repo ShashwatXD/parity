@@ -48,7 +48,41 @@ export const workspaceRepository = {
       `${API_ROUTES.workspaceGit}${diff ? '?diff=1' : ''}`,
     ),
   skills: () =>
-    apiGet<Array<{ name: string; description: string; triggers: string[] }>>(
-      API_ROUTES.workspaceSkills,
-    ),
+    apiGet<
+      Array<{
+        name: string;
+        description: string;
+        triggers: string[];
+        body: string;
+        enabled: boolean;
+      }>
+    >(API_ROUTES.skills),
+  create: (body: {
+    name: string;
+    description?: string;
+    triggers?: string[];
+    body: string;
+  }) =>
+    apiSend<{
+      name: string;
+      description: string;
+      triggers: string[];
+      body: string;
+      enabled: boolean;
+    }>(API_ROUTES.skills, { method: 'POST', body }),
+  update: (
+    name: string,
+    body: { description?: string; triggers?: string[]; body: string },
+  ) =>
+    apiSend<{
+      name: string;
+      description: string;
+      triggers: string[];
+      body: string;
+      enabled: boolean;
+    }>(`${API_ROUTES.skills}/${encodeURIComponent(name)}`, { method: 'PUT', body }),
+  remove: (name: string) =>
+    apiSend<{ ok: boolean }>(`${API_ROUTES.skills}/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
 };

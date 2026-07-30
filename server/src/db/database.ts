@@ -119,5 +119,27 @@ export function migrate() {
       json TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS rag_chunks (
+      id TEXT PRIMARY KEY,
+      path TEXT NOT NULL,
+      start_line INTEGER NOT NULL,
+      end_line INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      embedding_json TEXT,
+      indexed_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_rag_chunks_path ON rag_chunks(path);
+
+    CREATE TABLE IF NOT EXISTS rag_meta (
+      id TEXT PRIMARY KEY CHECK (id = 'default'),
+      root TEXT NOT NULL DEFAULT '',
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      file_count INTEGER NOT NULL DEFAULT 0,
+      embedding_mode TEXT NOT NULL DEFAULT 'none',
+      updated_at INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT
+    );
   `);
 }

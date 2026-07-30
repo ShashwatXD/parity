@@ -1,8 +1,10 @@
 export { approvalRepository } from './approvalRepository';
 export { chatRepository } from './chatRepository';
+export { evalRepository } from './evalRepository';
 export { healthRepository } from './healthRepository';
 export { mcpRepository } from './mcpRepository';
 export { observabilityRepository } from './observabilityRepository';
+export { ragRepository } from './ragRepository';
 export { sessionRepository } from './sessionRepository';
 export { settingsRepository } from './settingsRepository';
 export { studioRepository } from './studioRepository';

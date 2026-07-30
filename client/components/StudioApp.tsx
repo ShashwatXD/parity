@@ -82,6 +82,7 @@ export function StudioApp() {
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState('');
+  const [runEvents, setRunEvents] = useState<ExecutionEvent[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [provider, setProvider] = useState<string>(DEFAULT_PROVIDER);
@@ -153,6 +154,7 @@ export function StudioApp() {
 
   async function openSession(id: string) {
     setSessionId(id);
+    setRunEvents([]);
     const data = await sessionRepository.get(id);
     setMessages(data.messages ?? []);
     await refreshContext(id, provider, model);
@@ -364,6 +366,7 @@ export function StudioApp() {
     setMessages((prev) => [...prev, { id: `local_${Date.now()}`, role: 'user', content: userText }]);
     setBusy(true);
     setStreaming('');
+    setRunEvents([]);
     try {
       const { response: res, runId } = await chatRepository.send({
         sessionId: id,
@@ -371,21 +374,36 @@ export function StudioApp() {
         profileId,
       });
       setLastRunId(runId);
+      const poll = window.setInterval(() => {
+        if (!runId) return;
+        void observabilityRepository.events(runId).then((ev) => setRunEvents(ev)).catch(() => undefined);
+        void sessionRepository.get(id).then((s) => {
+          if (s.messages?.length) setMessages(s.messages);
+        }).catch(() => undefined);
+      }, 900);
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let assistant = '';
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const textMatches = [
-          ...chunk.matchAll(/"type":"text-delta"[^}]*"delta":"((?:\\.|[^"\\])*)"/g),
-        ];
-        for (const match of textMatches) {
-          const delta = JSON.parse(`"${match[1]}"`) as string;
-          assistant += delta;
-          setStreaming(assistant);
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const textMatches = [
+            ...chunk.matchAll(/"type":"text-delta"[^}]*"delta":"((?:\\.|[^"\\])*)"/g),
+          ];
+          for (const match of textMatches) {
+            const delta = JSON.parse(`"${match[1]}"`) as string;
+            assistant += delta;
+            setStreaming(assistant);
+          }
         }
+      } finally {
+        window.clearInterval(poll);
+      }
+      if (runId) {
+        const finalEvents = await observabilityRepository.events(runId).catch(() => []);
+        setRunEvents(finalEvents);
       }
       if (assistant) {
         setMessages((prev) => [
@@ -588,7 +606,12 @@ export function StudioApp() {
               </Button>
             </div>
           </div>
-          <ChatMessages messages={messages} streaming={streaming} />
+          <ChatMessages
+            messages={messages}
+            streaming={streaming}
+            runEvents={runEvents}
+            busy={busy && nav === 'chat'}
+          />
           <ChatComposer
             value={input}
             busy={busy}

@@ -23,6 +23,12 @@ export const llmProfileSchema = z.object({
   baseUrl: z.string().optional().default(''),
 });
 
+export const embeddingConfigSchema = z.object({
+  apiKey: z.string().optional().default(''),
+  baseUrl: z.string().optional().default('https://api.voyageai.com/v1'),
+  model: z.string().optional().default('voyage-code-3'),
+});
+
 export const appSettingsSchema = z.object({
   defaultProvider: z
     .enum(['openai', 'anthropic', 'gemini', 'ollama', 'custom'])
@@ -33,6 +39,8 @@ export const appSettingsSchema = z.object({
   systemPrompt: z.string().default(DEFAULT_SYSTEM_PROMPT),
   condensationPrompt: z.string().default(DEFAULT_CONDENSATION_PROMPT),
   maxAgentSteps: z.number().int().min(1).max(64).default(16),
+  disabledSkills: z.array(z.string()).default([]),
+  embedding: embeddingConfigSchema.default({}),
   providers: z
     .object({
       openai: providerConfigSchema.default({}),
@@ -82,6 +90,13 @@ export type PublicAppSettings = {
   systemPrompt: string;
   condensationPrompt: string;
   maxAgentSteps: number;
+  disabledSkills: string[];
+  embedding: {
+    apiKeySet: boolean;
+    apiKeyHint: string;
+    baseUrl: string;
+    model: string;
+  };
   providers: Record<ProviderId, PublicProviderConfig>;
   profiles: PublicLlmProfile[];
 };
@@ -185,6 +200,13 @@ export function defaultSettings(): AppSettings {
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     condensationPrompt: DEFAULT_CONDENSATION_PROMPT,
     maxAgentSteps: 8,
+    disabledSkills: [],
+    embedding: {
+      apiKey: process.env.EMBEDDING_API_KEY ?? process.env.VOYAGE_API_KEY ?? '',
+      baseUrl:
+        process.env.EMBEDDING_BASE_URL ?? 'https://api.voyageai.com/v1',
+      model: process.env.EMBEDDING_MODEL ?? 'voyage-code-3',
+    },
     providers: {
       openai: {
         apiKey: process.env.OPENAI_API_KEY ?? '',
@@ -234,6 +256,13 @@ export function toPublicSettings(settings: AppSettings): PublicAppSettings {
     systemPrompt: ensured.systemPrompt,
     condensationPrompt: ensured.condensationPrompt,
     maxAgentSteps: ensured.maxAgentSteps,
+    disabledSkills: ensured.disabledSkills ?? [],
+    embedding: {
+      apiKeySet: Boolean(ensured.embedding?.apiKey?.trim()),
+      apiKeyHint: hintForKey(ensured.embedding?.apiKey ?? ''),
+      baseUrl: ensured.embedding?.baseUrl ?? 'https://api.voyageai.com/v1',
+      model: ensured.embedding?.model ?? 'voyage-code-3',
+    },
     providers: {
       openai: map(ensured.providers.openai),
       anthropic: map(ensured.providers.anthropic),
@@ -282,6 +311,26 @@ export function mergeSettingsPatch(
     next.condensationPrompt = patch.condensationPrompt;
   }
   if (typeof patch.maxAgentSteps === 'number') next.maxAgentSteps = patch.maxAgentSteps;
+  if (Array.isArray(patch.disabledSkills)) {
+    next.disabledSkills = patch.disabledSkills
+      .filter((s): s is string => typeof s === 'string')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  const embedding = patch.embedding as Record<string, unknown> | undefined;
+  if (embedding && typeof embedding === 'object') {
+    next.embedding = next.embedding ?? {
+      apiKey: '',
+      baseUrl: 'https://api.voyageai.com/v1',
+      model: 'voyage-code-3',
+    };
+    if (typeof embedding.baseUrl === 'string') next.embedding.baseUrl = embedding.baseUrl;
+    if (typeof embedding.model === 'string') next.embedding.model = embedding.model;
+    if (typeof embedding.apiKey === 'string' && embedding.apiKey.trim().length > 0) {
+      next.embedding.apiKey = embedding.apiKey;
+    }
+  }
 
   const providers = patch.providers as Record<string, Record<string, unknown>> | undefined;
   if (providers && typeof providers === 'object') {

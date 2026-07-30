@@ -1197,6 +1197,226 @@ code, .mono { font-family: var(--parity-mono); }
   color: #fff;
 }
 
+.skill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-row {
+  border: 1px solid var(--parity-border-subtle);
+  border-radius: 8px;
+  background: var(--parity-base-secondary);
+  padding: 10px 12px;
+}
+
+.skill-row-off {
+  opacity: 0.72;
+}
+
+.skill-row-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.skill-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.skill-row-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.skill-row-desc {
+  font-size: 12px;
+  color: var(--parity-muted);
+  line-height: 1.4;
+}
+
+.skill-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.skill-trigger {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--parity-surface-raised);
+  border: 1px solid var(--parity-border-subtle);
+  color: var(--parity-muted);
+  font-family: var(--parity-mono);
+}
+
+.skill-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--parity-muted);
+  cursor: pointer;
+  user-select: none;
+  padding-top: 2px;
+}
+
+.skill-toggle input {
+  accent-color: var(--parity-primary);
+}
+
+.skill-body {
+  margin: 10px 0 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--parity-surface);
+  border: 1px solid var(--parity-border-subtle);
+  font-family: var(--parity-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: #d0d0d0;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.eval-agg {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--parity-border-subtle);
+  font-size: 13px;
+}
+
+.eval-case-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.eval-run-card {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--parity-border-subtle);
+  background: var(--parity-base-secondary);
+}
+
+.eval-dims {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.eval-dim {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--parity-surface);
+  color: var(--parity-muted);
+}
+
+.agent-iterations {
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px dashed var(--parity-border);
+  background: color-mix(in srgb, var(--parity-base-secondary) 80%, transparent);
+}
+
+.agent-iterations-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--parity-primary);
+  margin-bottom: 8px;
+}
+
+.agent-iteration-row {
+  display: grid;
+  grid-template-columns: 28px 100px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  padding: 3px 0;
+}
+
+.agent-iteration-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #ddd;
+}
+
+.rag-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--parity-border-subtle);
+  background: var(--parity-base-secondary);
+}
+
+.rag-search-row input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+}
+
+.rag-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.rag-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid var(--parity-border-subtle);
+  border-radius: 8px;
+  background: var(--parity-base-secondary);
+  color: inherit;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.rag-hit:hover {
+  border-color: var(--parity-border);
+}
+
+.rag-hit pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--parity-mono);
+  font-size: 10px;
+  color: #c8c8c8;
+  max-height: 100px;
+  overflow: hidden;
+}
+
 .page-view {
   flex: 1;
   min-height: 0;

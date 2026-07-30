@@ -26,7 +26,10 @@ import {
   runWorkflow,
   type WorkflowGraph,
 } from '../runtime/workflows.js';
-import { listSkills } from '../agent/skills.js';
+import { buildEvalDashboard, runEvalSuite } from '../eval/runner.js';
+import { getRagStatus, indexWorkspace } from '../rag/indexer.js';
+import { searchCodebase } from '../rag/retrieve.js';
+import { deleteSkill, listSkillInfos, writeSkill } from '../agent/skills.js';
 import { listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile } from '../workspace/files.js';
 import { gitDiff, gitStatus } from '../workspace/git.js';
 import { getWorkspaceRoot } from '../workspace/paths.js';
@@ -263,6 +266,39 @@ api.get(API_ROUTES.observabilityEvents, (c) => {
 
 api.get(API_ROUTES.observabilityMetrics, (c) => c.json(metricsSummary()));
 
+api.get(API_ROUTES.evals, async (c) => c.json(await buildEvalDashboard()));
+
+api.post(API_ROUTES.evalsRun, async (c) => c.json(await runEvalSuite()));
+
+api.get(API_ROUTES.ragStatus, (c) => c.json(getRagStatus()));
+
+api.post(API_ROUTES.ragIndex, async (c) => {
+  try {
+    const body = z
+      .object({ withEmbeddings: z.boolean().optional() })
+      .parse(await c.req.json().catch(() => ({})));
+    return c.json(await indexWorkspace({ withEmbeddings: body.withEmbeddings }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.post(API_ROUTES.ragSearch, async (c) => {
+  try {
+    const body = z
+      .object({
+        query: z.string().min(1),
+        limit: z.number().int().min(1).max(20).optional(),
+      })
+      .parse(await c.req.json());
+    return c.json(await searchCodebase(body.query, body.limit ?? 8));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
 api.get(API_ROUTES.settings, (c) => c.json(getPublicSettings()));
 
 api.put(API_ROUTES.settings, async (c) => {
@@ -339,15 +375,61 @@ api.get(API_ROUTES.workspaceGit, async (c) => {
   return c.json({ ...status, ...diff });
 });
 
-api.get(API_ROUTES.workspaceSkills, (c) =>
-  c.json(
-    listSkills().map((s) => ({
-      name: s.name,
-      description: s.description,
-      triggers: s.triggers,
-    })),
-  ),
-);
+api.get(API_ROUTES.workspaceSkills, (c) => c.json(listSkillInfos()));
+
+api.post(API_ROUTES.skills, async (c) => {
+  try {
+    const body = z
+      .object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+        triggers: z.array(z.string()).optional(),
+        body: z.string().min(1),
+      })
+      .parse(await c.req.json());
+    return c.json(writeSkill(body), 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.put('/skills/:name', async (c) => {
+  try {
+    const name = c.req.param('name');
+    const body = z
+      .object({
+        description: z.string().optional(),
+        triggers: z.array(z.string()).optional(),
+        body: z.string().min(1),
+      })
+      .parse(await c.req.json());
+    return c.json(
+      writeSkill(
+        {
+          name,
+          description: body.description,
+          triggers: body.triggers,
+          body: body.body,
+        },
+        { overwrite: true },
+      ),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.delete('/skills/:name', async (c) => {
+  try {
+    deleteSkill(c.req.param('name'));
+    return c.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
 
 api.post(API_ROUTES.chat, async (c) => {
   try {

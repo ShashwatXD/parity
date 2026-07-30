@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
-import { settingsRepository } from '@/lib/api';
+import { settingsRepository, workspaceRepository } from '@/lib/api';
 import { PROVIDER_OPTIONS } from '@/lib/constants';
 import type {
   AppSettings,
@@ -10,11 +10,13 @@ import type {
   ProviderId,
   PublicLlmProfile,
   SettingsUpdate,
+  SkillInfo,
 } from '@/lib/models';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Field, Input, Select, Textarea } from '@/components/ui/Field';
 import { PanelCard } from '@/components/ui/Panel';
+import { cn } from '@/lib/utils/cn';
 
 const PROVIDER_COPY: Record<
   ProviderId,
@@ -111,12 +113,27 @@ export function SettingsPanel({ onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState('');
-  const [section, setSection] = useState<'llms' | 'prompts' | 'workspace'>('llms');
+  const [section, setSection] = useState<'llms' | 'prompts' | 'workspace' | 'skills'>('llms');
   const [llmView, setLlmView] = useState<LlmView>('list');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [condensationPrompt, setCondensationPrompt] = useState('');
   const [maxAgentSteps, setMaxAgentSteps] = useState(16);
   const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [embedApiKey, setEmbedApiKey] = useState('');
+  const [embedBaseUrl, setEmbedBaseUrl] = useState('https://api.voyageai.com/v1');
+  const [embedModel, setEmbedModel] = useState('voyage-code-3');
+  const [embedHint, setEmbedHint] = useState<{ set: boolean; hint: string }>({
+    set: false,
+    hint: '',
+  });
+  const [disabledSkills, setDisabledSkills] = useState<string[]>([]);
+  const [skillInfos, setSkillInfos] = useState<SkillInfo[]>([]);
+  const [expandedSkill, setExpandedSkill] = useState('');
+  const [skillView, setSkillView] = useState<'list' | 'create'>('list');
+  const [skillName, setSkillName] = useState('');
+  const [skillDescription, setSkillDescription] = useState('');
+  const [skillTriggers, setSkillTriggers] = useState('');
+  const [skillBody, setSkillBody] = useState('');
   const [profiles, setProfiles] = useState<Draft[]>([]);
   const [hints, setHints] = useState<Record<string, { set: boolean; hint: string }>>({});
   const [activeProfileId, setActiveProfileId] = useState('');
@@ -133,6 +150,14 @@ export function SettingsPanel({ onSaved }: Props) {
       setCondensationPrompt(s.condensationPrompt);
       setMaxAgentSteps(s.maxAgentSteps);
       setWorkspaceRoot(s.workspaceRoot ?? '');
+      setDisabledSkills(s.disabledSkills ?? []);
+      setEmbedBaseUrl(s.embedding?.baseUrl || 'https://api.voyageai.com/v1');
+      setEmbedModel(s.embedding?.model || 'voyage-code-3');
+      setEmbedApiKey('');
+      setEmbedHint({
+        set: Boolean(s.embedding?.apiKeySet),
+        hint: s.embedding?.apiKeyHint || '',
+      });
       const drafts = (s.profiles ?? []).map(toDraft);
       // Always keep at least one profile in memory for the compulsory default
       setProfiles(drafts.length ? drafts : [newDraft()]);
@@ -143,6 +168,11 @@ export function SettingsPanel({ onSaved }: Props) {
         nextHints[p.id] = { set: p.apiKeySet, hint: p.apiKeyHint };
       }
       setHints(nextHints);
+      try {
+        setSkillInfos(await workspaceRepository.skills());
+      } catch {
+        setSkillInfos([]);
+      }
       if (!opts?.keepView) {
         setLlmView('list');
         setDraft(null);
@@ -221,6 +251,12 @@ export function SettingsPanel({ onSaved }: Props) {
         condensationPrompt,
         maxAgentSteps,
         workspaceRoot,
+        disabledSkills,
+        embedding: {
+          baseUrl: embedBaseUrl,
+          model: embedModel,
+          ...(embedApiKey.trim() ? { apiKey: embedApiKey.trim() } : {}),
+        },
         ...extras,
         profiles: nextProfiles.map(
           (p): LlmProfileDraft => ({
@@ -302,11 +338,90 @@ export function SettingsPanel({ onSaved }: Props) {
     }
   }
 
+  async function toggleSkill(name: string, enabled: boolean) {
+    const nextDisabled = enabled
+      ? disabledSkills.filter((n) => n !== name)
+      : [...new Set([...disabledSkills, name])];
+    setDisabledSkills(nextDisabled);
+    setSkillInfos((prev) =>
+      prev.map((s) => (s.name === name ? { ...s, enabled } : s)),
+    );
+    setSaving(true);
+    setError('');
+    setOk('');
+    try {
+      const saved = await settingsRepository.update({ disabledSkills: nextDisabled });
+      onSaved?.(saved);
+      setOk(enabled ? `Enabled ${name}` : `Disabled ${name}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setDisabledSkills(disabledSkills);
+      setSkillInfos((prev) =>
+        prev.map((s) => (s.name === name ? { ...s, enabled: !enabled } : s)),
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function openCreateSkill() {
+    setSkillView('create');
+    setSkillName('');
+    setSkillDescription('');
+    setSkillTriggers('');
+    setSkillBody(
+      '1. Clarify the goal.\n2. Use the right tools.\n3. Verify with a command or read-back.\n',
+    );
+    setOk('');
+    setError('');
+  }
+
+  async function createSkill() {
+    setSaving(true);
+    setError('');
+    setOk('');
+    try {
+      await workspaceRepository.create({
+        name: skillName,
+        description: skillDescription,
+        triggers: skillTriggers
+          .split(/[,|]/)
+          .map((t) => t.trim())
+          .filter(Boolean),
+        body: skillBody,
+      });
+      setOk('Skill created');
+      setSkillView('list');
+      setSkillInfos(await workspaceRepository.skills());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeSkill(name: string) {
+    if (!window.confirm(`Delete skill “${name}”?`)) return;
+    setSaving(true);
+    setError('');
+    try {
+      await workspaceRepository.remove(name);
+      setSkillInfos(await workspaceRepository.skills());
+      setOk(`Deleted ${name}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (loading) return <div className="pad muted">Loading settings…</div>;
 
   const copy = draft ? PROVIDER_COPY[draft.provider] : PROVIDER_COPY.ollama;
   const hint = draft ? hints[draft.id] : undefined;
-  const editingInDetail = section === 'llms' && (llmView === 'create' || llmView === 'edit');
+  const editingInDetail =
+    (section === 'llms' && (llmView === 'create' || llmView === 'edit')) ||
+    (section === 'skills' && skillView === 'create');
 
   return (
     <div className="pad scroll-y stack">
@@ -336,6 +451,16 @@ export function SettingsPanel({ onSaved }: Props) {
             }}
           >
             LLMs
+          </button>
+          <button
+            type="button"
+            className={section === 'skills' ? 'settings-tab active' : 'settings-tab'}
+            onClick={() => {
+              setSection('skills');
+              setSkillView('list');
+            }}
+          >
+            Skills
           </button>
           <button
             type="button"
@@ -534,6 +659,145 @@ export function SettingsPanel({ onSaved }: Props) {
         </PanelCard>
       ) : null}
 
+      {section === 'skills' && skillView === 'list' ? (
+        <PanelCard>
+          <div className="stack">
+            <div className="llm-list-header">
+              <div>
+                <strong>Agent skills</strong>
+                <p className="muted" style={{ margin: '4px 0 0', fontSize: 12 }}>
+                  Conditional playbooks injected when triggers match. Stored as markdown in{' '}
+                  <span className="mono">server/skills/</span>.
+                </p>
+              </div>
+              <Button variant="secondary" onClick={openCreateSkill}>
+                <Plus size={14} /> Add skill
+              </Button>
+            </div>
+            {skillInfos.length === 0 ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                No skills yet. Add one to teach the agent a playbook.
+              </p>
+            ) : (
+              <div className="skill-list">
+                {skillInfos.map((skill) => {
+                  const open = expandedSkill === skill.name;
+                  return (
+                    <div
+                      key={skill.name}
+                      className={cn('skill-row', !skill.enabled && 'skill-row-off')}
+                    >
+                      <div className="skill-row-top">
+                        <button
+                          type="button"
+                          className="skill-row-main"
+                          onClick={() =>
+                            setExpandedSkill((n) => (n === skill.name ? '' : skill.name))
+                          }
+                        >
+                          <span className="skill-row-name">{skill.name}</span>
+                          <span className="skill-row-desc">{skill.description}</span>
+                          {skill.triggers.length ? (
+                            <span className="skill-triggers">
+                              {skill.triggers.map((t) => (
+                                <span key={t} className="skill-trigger">
+                                  {t}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            <span className="skill-triggers muted">Always on when enabled</span>
+                          )}
+                        </button>
+                        <label className="skill-toggle">
+                          <input
+                            type="checkbox"
+                            checked={skill.enabled}
+                            disabled={saving}
+                            onChange={(e) => void toggleSkill(skill.name, e.target.checked)}
+                          />
+                          <span>{skill.enabled ? 'On' : 'Off'}</span>
+                        </label>
+                      </div>
+                      {open ? (
+                        <div className="stack" style={{ marginTop: 8 }}>
+                          <pre className="skill-body">{skill.body}</pre>
+                          <Button
+                            variant="danger"
+                            disabled={saving}
+                            onClick={() => void removeSkill(skill.name)}
+                          >
+                            <Trash2 size={14} /> Delete
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </PanelCard>
+      ) : null}
+
+      {section === 'skills' && skillView === 'create' ? (
+        <PanelCard>
+          <div className="stack">
+            <div className="llm-detail-nav">
+              <button type="button" className="llm-back" onClick={() => setSkillView('list')}>
+                <ArrowLeft size={14} /> Back
+              </button>
+              <strong>Add skill</strong>
+            </div>
+            <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+              Name becomes the filename. Triggers are comma-separated keywords matched against the
+              user message.
+            </p>
+            <Field label="Name">
+              <Input
+                value={skillName}
+                onChange={(e) => setSkillName(e.target.value)}
+                placeholder="pr-review"
+                spellCheck={false}
+              />
+            </Field>
+            <Field label="Description">
+              <Input
+                value={skillDescription}
+                onChange={(e) => setSkillDescription(e.target.value)}
+                placeholder="How to review pull requests"
+              />
+            </Field>
+            <Field label="Triggers">
+              <Input
+                value={skillTriggers}
+                onChange={(e) => setSkillTriggers(e.target.value)}
+                placeholder="pr, review, pull request"
+              />
+            </Field>
+            <Field label="Playbook body">
+              <Textarea
+                value={skillBody}
+                onChange={(e) => setSkillBody(e.target.value)}
+                style={{ minHeight: 160, fontFamily: 'var(--parity-mono)', fontSize: 12 }}
+              />
+            </Field>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                variant="primary"
+                disabled={saving || !skillName.trim() || !skillBody.trim()}
+                onClick={() => void createSkill()}
+              >
+                {saving ? 'Saving…' : 'Create skill'}
+              </Button>
+              <Button variant="ghost" disabled={saving} onClick={() => setSkillView('list')}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </PanelCard>
+      ) : null}
+
       {section === 'workspace' ? (
         <>
           <PanelCard>
@@ -559,6 +823,46 @@ export function SettingsPanel({ onSaved }: Props) {
                   max={64}
                   value={maxAgentSteps}
                   onChange={(e) => setMaxAgentSteps(Number(e.target.value) || 16)}
+                />
+              </Field>
+            </div>
+          </PanelCard>
+          <PanelCard>
+            <div className="stack">
+              <strong>RAG embeddings</strong>
+              <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+                Separate from chat LLMs (works with any profile). Default is Voyage{' '}
+                <span className="mono">voyage-code-3</span> — code-specialized, same class of
+                embedder coding agents use for semantic search. OpenHands Canvas itself does not
+                ship built-in codebase RAG; we follow that LLM-agnostic embedder pattern.
+              </p>
+              <Field label="Embedding model">
+                <Input
+                  value={embedModel}
+                  onChange={(e) => setEmbedModel(e.target.value)}
+                  placeholder="voyage-code-3"
+                  spellCheck={false}
+                />
+              </Field>
+              <Field label="Base URL">
+                <Input
+                  value={embedBaseUrl}
+                  onChange={(e) => setEmbedBaseUrl(e.target.value)}
+                  placeholder="https://api.voyageai.com/v1"
+                  spellCheck={false}
+                />
+              </Field>
+              <Field label="API key">
+                <Input
+                  type="password"
+                  value={embedApiKey}
+                  onChange={(e) => setEmbedApiKey(e.target.value)}
+                  placeholder={
+                    embedHint.set
+                      ? `Stored ${embedHint.hint} — enter to replace`
+                      : 'VOYAGE_API_KEY / EMBEDDING_API_KEY'
+                  }
+                  autoComplete="off"
                 />
               </Field>
             </div>

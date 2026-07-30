@@ -2,9 +2,11 @@ export { ApiError, apiGet, apiSend, apiStream } from './client';
 export {
   approvalRepository,
   chatRepository,
+  evalRepository,
   healthRepository,
   mcpRepository,
   observabilityRepository,
+  ragRepository,
   sessionRepository,
   settingsRepository,
   studioRepository,

@@ -25,6 +25,13 @@ export type AppSettings = {
   systemPrompt: string;
   condensationPrompt: string;
   maxAgentSteps: number;
+  disabledSkills: string[];
+  embedding: {
+    apiKeySet: boolean;
+    apiKeyHint: string;
+    baseUrl: string;
+    model: string;
+  };
   providers: Record<ProviderId, PublicProviderConfig>;
   profiles: PublicLlmProfile[];
 };
@@ -46,6 +53,12 @@ export type SettingsUpdate = {
   systemPrompt?: string;
   condensationPrompt?: string;
   maxAgentSteps?: number;
+  disabledSkills?: string[];
+  embedding?: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+  };
   providers?: Partial<
     Record<
       ProviderId,
@@ -57,4 +70,12 @@ export type SettingsUpdate = {
     >
   >;
   profiles?: LlmProfileDraft[];
+};
+
+export type SkillInfo = {
+  name: string;
+  description: string;
+  triggers: string[];
+  body: string;
+  enabled: boolean;
 };
