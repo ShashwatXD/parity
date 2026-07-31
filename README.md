@@ -13,6 +13,10 @@ npm run dev
 
 Separate processes: `npm run server` · `npm run client`
 
+Working example: 
+<img width="1016" height="727" alt="Screenshot 2026-07-31 at 16 40 37" src="https://github.com/user-attachments/assets/fac49879-c19d-41a4-a30a-9a200cfa6c4e" />
+
+
 **Workspace:** Files → **Select folder** (native dialog on the API host → real path). Or paste an absolute path → **Set**.
 
 ## Quick tour
