@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe, Menu, PanelRight } from 'lucide-react';
 import {
   approvalRepository,
@@ -49,6 +49,8 @@ import { ContextMeter } from '@/components/features/chat/ContextMeter';
 import { PromptsPanel, ResourcesPanel } from '@/components/features/mcp/CatalogPanels';
 import { McpServersPanel } from '@/components/features/mcp/McpServersPanel';
 import { ObservabilityPanel } from '@/components/features/observability/ObservabilityPanel';
+import { TimelineEventRow } from '@/components/features/observability/EventInspector';
+import { MemoryPanel } from '@/components/features/memory/MemoryPanel';
 import { PlaygroundPanel } from '@/components/features/playground/PlaygroundPanel';
 import { SettingsPanel } from '@/components/features/settings/SettingsPanel';
 import { ToolsPanel } from '@/components/features/tools/ToolsPanel';
@@ -85,6 +87,18 @@ export function StudioApp() {
   const [streaming, setStreaming] = useState('');
   const [runEvents, setRunEvents] = useState<ExecutionEvent[]>([]);
   const [busy, setBusy] = useState(false);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
+  /** Keep harness chips until next send or session switch (survives refresh races). */
+  function retainRunEvents(next: ExecutionEvent[]) {
+    if (!next.length) return;
+    setRunEvents(next);
+  }
+
+  function clearRunEvents() {
+    setRunEvents([]);
+  }
   const [error, setError] = useState('');
   const [provider, setProvider] = useState<string>(DEFAULT_PROVIDER);
   const [model, setModel] = useState<string>(DEFAULT_MODELS.ollama);
@@ -154,11 +168,18 @@ export function StudioApp() {
   }
 
   async function openSession(id: string) {
+    const switching = id !== sessionIdRef.current;
     setSessionId(id);
-    setRunEvents([]);
+    sessionIdRef.current = id;
+    if (switching) clearRunEvents();
     const data = await sessionRepository.get(id);
     setMessages(data.messages ?? []);
     await refreshContext(id, provider, model);
+  }
+
+  async function reloadMessages(id: string) {
+    const data = await sessionRepository.get(id);
+    setMessages(data.messages ?? []);
   }
 
   async function refresh() {
@@ -188,7 +209,9 @@ export function StudioApp() {
     setArtifacts(art);
     setJobs(j);
     setPlugins(pl);
-    if (!sessionId && s[0]) await openSession(s[0].id);
+    // Use ref — interval refresh closes over a stale empty sessionId otherwise
+    // and re-opens the first session every 8s, wiping harness chips.
+    if (!sessionIdRef.current && s[0]) await openSession(s[0].id);
   }
 
   async function createChat() {
@@ -367,7 +390,7 @@ export function StudioApp() {
     setMessages((prev) => [...prev, { id: `local_${Date.now()}`, role: 'user', content: userText }]);
     setBusy(true);
     setStreaming('');
-    setRunEvents([]);
+    clearRunEvents();
     try {
       const { response: res, runId } = await chatRepository.send({
         sessionId: id,
@@ -375,10 +398,12 @@ export function StudioApp() {
         profileId,
       });
       setLastRunId(runId);
+      let pollActive = true;
       const poll = window.setInterval(() => {
-        if (!runId) return;
+        if (!runId || !pollActive) return;
         void observabilityRepository.events(runId).then((ev) => {
-          setRunEvents(ev);
+          if (!pollActive) return;
+          retainRunEvents(ev);
           const touchedFs = ev.some(
             (e) =>
               /file_editor|terminal|write|glob/i.test(e.label) ||
@@ -387,6 +412,7 @@ export function StudioApp() {
           if (touchedFs) notifyWorkspaceChanged();
         }).catch(() => undefined);
         void sessionRepository.get(id).then((s) => {
+          if (!pollActive) return;
           if (s.messages?.length) setMessages(s.messages);
         }).catch(() => undefined);
       }, 900);
@@ -408,23 +434,21 @@ export function StudioApp() {
           }
         }
       } finally {
+        pollActive = false;
         window.clearInterval(poll);
       }
       if (runId) {
         const finalEvents = await observabilityRepository.events(runId).catch(() => []);
-        setRunEvents(finalEvents);
+        retainRunEvents(finalEvents);
       }
-      if (assistant) {
-        setMessages((prev) => [
-          ...prev,
-          { id: `assistant_${Date.now()}`, role: 'assistant', content: assistant },
-        ]);
-      } else {
-        await openSession(id);
-      }
+      await reloadMessages(id);
       setStreaming('');
       await refresh();
       await refreshContext(id);
+      if (runId) {
+        const finalEvents = await observabilityRepository.events(runId).catch(() => []);
+        retainRunEvents(finalEvents);
+      }
       notifyWorkspaceChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -481,7 +505,8 @@ export function StudioApp() {
           description="Live browser observations for agent navigation — MCP Playwright already connects today."
         />
       );
-    }    if (rightTab === 'timeline') {
+    }
+    if (rightTab === 'timeline') {
       return (
         <div className="pad stack">
           <PanelCard>
@@ -489,24 +514,12 @@ export function StudioApp() {
               <strong>Live timeline</strong>
               <Badge tone="accent">{events.length} events</Badge>
             </div>
+            <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
+              Click a chip to inspect args, results, or memory gate decisions.
+            </p>
             <div className="stack" style={{ marginTop: 10 }}>
               {events.slice(0, 24).map((e) => (
-                <div
-                  key={e.id}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '72px 1fr auto',
-                    gap: 8,
-                    fontSize: 11,
-                    alignItems: 'center',
-                  }}
-                >
-                  <span className="mono dim">{e.kind}</span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {e.label}
-                  </span>
-                  <Badge tone={e.status === 'error' ? 'error' : 'default'}>{e.latencyMs}ms</Badge>
-                </div>
+                <TimelineEventRow key={e.id} event={e} />
               ))}
             </div>
           </PanelCard>
@@ -712,6 +725,7 @@ export function StudioApp() {
             {nav === 'observability' ? (
               <ObservabilityPanel events={events} metrics={metrics} plugins={plugins} />
             ) : null}
+            {nav === 'memory' ? <MemoryPanel /> : null}
             {nav === 'settings' ? (
               <SettingsPanel onSaved={(s) => applySettings(s)} />
             ) : null}

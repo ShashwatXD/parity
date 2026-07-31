@@ -9,7 +9,10 @@ import { formatSkillsForPrompt, selectSkillsForMessage } from '../agent/skills.j
 import { detectStuck, stepFromToolCall, type StuckStep } from '../agent/stuckDetector.js';
 import { runSubagent } from '../agent/subagent.js';
 import { formatPlanMarkdown } from '../agent/taskTracker.js';
+import { buildMemoryTools } from '../agent/memoryTools.js';
+import { buildWebTools } from '../agent/webTools.js';
 import { buildWorkspaceTools } from '../agent/workspaceTools.js';
+import { gatedRetrieveMemories } from '../memory/retrieve.js';
 import { createArtifact } from './artifacts.js';
 import {
   buildContextSnapshot,
@@ -174,6 +177,7 @@ function buildAgentSystemPrompt(input: {
   userMessage: string;
   sessionId: string;
   mcpTools: Array<{ connectionName: string; name: string }>;
+  memoryBlock?: string;
 }): string {
   const skills = selectSkillsForMessage(input.userMessage);
   const skillBlock = formatSkillsForPrompt(skills);
@@ -189,9 +193,11 @@ function buildAgentSystemPrompt(input: {
     '',
     '## Workspace sandbox',
     `Root: ${getWorkspaceRoot()}`,
-    'Native tools: file_editor, terminal, glob, grep, codebase_search, list_dir, git_status, task_tracker, delegate_task.',
+    'Native tools: file_editor, terminal, glob, grep, codebase_search, list_dir, git_status, task_tracker, delegate_task, remember, recall_memory, forget_memory, search_web.',
     'Use codebase_search (RAG) to find relevant code by meaning/keywords before broad grep when the workspace is indexed.',
     'For multi-step coding work: create a task_tracker plan first, then execute.',
+    'Use remember / recall_memory / forget_memory for durable user preferences and facts (separate from codebase RAG).',
+    'Use search_web for live/current information (FX rates, news, docs). Never say you lack internet access — call search_web first.',
     '',
     '## Connected MCP tools',
     ...mcpLines,
@@ -200,6 +206,7 @@ function buildAgentSystemPrompt(input: {
     '',
     '## Current plan',
     plan,
+    input.memoryBlock ? `\n${input.memoryBlock}` : '',
     skillBlock ? `\n${skillBlock}` : '',
   ]
     .filter(Boolean)
@@ -278,6 +285,25 @@ export async function runAgentTurn(input: {
   }));
 
   const skills = selectSkillsForMessage(input.userMessage);
+  const memoryHit = gatedRetrieveMemories(input.userMessage);
+  recordEvent({
+    runId,
+    sessionId: input.sessionId,
+    kind: 'memory_gate',
+    label: memoryHit.gate.retrieve ? 'Memory · retrieve' : 'Memory · skip',
+    detail: {
+      decision: memoryHit.gate.retrieve ? 'retrieve' : 'skip',
+      reason: memoryHit.gate.reason,
+      query: memoryHit.gate.query,
+      hits: memoryHit.memories.map((m) => ({
+        id: m.id,
+        kind: m.kind,
+        subject: m.subject,
+        content: m.content.slice(0, 200),
+      })),
+    },
+  });
+
   const discoveredTools = await mcpManager.listTools();
   recordEvent({
     runId,
@@ -297,9 +323,14 @@ export async function runAgentTurn(input: {
         'git_status',
         'task_tracker',
         'delegate_task',
+        'remember',
+        'recall_memory',
+        'forget_memory',
+        'search_web',
       ],
       skills: skills.map((s) => s.name),
       workspace: getWorkspaceRoot(),
+      memoryGate: memoryHit.gate,
     },
   });
 
@@ -307,6 +338,8 @@ export async function runAgentTurn(input: {
   let stuckWarned = false;
 
   const workspaceTools = buildWorkspaceTools(input.sessionId);
+  const memoryTools = buildMemoryTools();
+  const webTools = buildWebTools();
   const mcpTools = await buildMcpTools(runId, input.sessionId);
 
   const delegate = tool({
@@ -350,9 +383,14 @@ export async function runAgentTurn(input: {
     },
   });
 
-  // MCP tools already log themselves; wrap workspace + delegate for stuck + telemetry
+  // MCP tools already log themselves; wrap workspace + memory + web + delegate for stuck + telemetry
   const tools: ToolSet = {
-    ...wrapToolsForTelemetry({ ...workspaceTools, delegate_task: delegate }, runId, input.sessionId, stuckSteps),
+    ...wrapToolsForTelemetry(
+      { ...workspaceTools, ...memoryTools, ...webTools, delegate_task: delegate },
+      runId,
+      input.sessionId,
+      stuckSteps,
+    ),
     ...mcpTools,
   };
 
@@ -365,6 +403,7 @@ export async function runAgentTurn(input: {
       connectionName: t.connectionName,
       name: t.name,
     })),
+    memoryBlock: memoryHit.promptBlock,
   });
 
   const result = streamText({
@@ -400,14 +439,19 @@ export async function runAgentTurn(input: {
     },
     onStepFinish: async ({ toolCalls, toolResults, finishReason, usage }) => {
       stepIndex += 1;
+      const names = toolCalls?.map((c) => c.toolName) ?? [];
+      const label =
+        names.length === 0
+          ? `LLM · answer (no tools)`
+          : `LLM · step ${stepIndex} · ${names.join(', ')}`;
       recordEvent({
         runId,
         sessionId: input.sessionId,
         kind: 'react_step',
-        label: `ReAct step ${stepIndex}`,
+        label,
         detail: {
           finishReason,
-          toolCalls: toolCalls?.map((c) => c.toolName) ?? [],
+          toolCalls: names,
           toolResultCount: toolResults?.length ?? 0,
           tokensPrompt: usage?.inputTokens ?? 0,
           tokensCompletion: usage?.outputTokens ?? 0,
@@ -440,8 +484,13 @@ export async function runAgentTurn(input: {
         runId,
         sessionId: input.sessionId,
         kind: 'assistant_response',
-        label: 'Completed',
-        detail: { preview: text.slice(0, 280), costUsd },
+        label: 'LLM reply',
+        detail: {
+          text,
+          preview: text.slice(0, 280),
+          costUsd,
+          finishReason: 'stop',
+        },
         latencyMs,
         tokensPrompt: promptTokens,
         tokensCompletion: completionTokens,

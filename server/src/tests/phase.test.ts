@@ -125,7 +125,14 @@ test('sqlite tables exist', () => {
     .prepare(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
     .all() as Array<{ name: string }>;
   const names = tables.map((t) => t.name);
-  for (const required of ['sessions', 'messages', 'workflows', 'execution_events', 'approvals']) {
+  for (const required of [
+    'sessions',
+    'messages',
+    'workflows',
+    'execution_events',
+    'approvals',
+    'user_memories',
+  ]) {
     assert.ok(names.includes(required), `missing ${required}`);
   }
 });

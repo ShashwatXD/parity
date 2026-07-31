@@ -21,6 +21,7 @@ export const ID_PREFIX = {
   artifact: 'art',
   approval: 'appr',
   job: 'job',
+  memory: 'mem',
 } as const;
 
 /** Relative route paths mounted under `/api`. */
@@ -56,6 +57,10 @@ export const API_ROUTES = {
   ragSearch: '/rag/search',
   chat: '/chat',
   settings: '/settings',
+  memories: '/memories',
+  memory: (id: string) => `/memories/${id}`,
+  memorySearch: '/memories/search',
+  memoryGate: '/memories/gate',
   skills: '/skills',
   workspaceRoot: '/workspace',
   workspaceTree: '/workspace/tree',

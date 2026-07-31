@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { evalRepository } from '@/lib/api';
 import type { EvalDashboard, ExecutionEvent, MetricsSummary, PluginInfo } from '@/lib/models';
+import { TimelineEventRow } from '@/components/features/observability/EventInspector';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { PanelCard } from '@/components/ui/Panel';
@@ -178,24 +179,12 @@ export function ObservabilityPanel({ events, metrics, plugins }: Props) {
 
       <PanelCard>
         <strong>Execution timeline</strong>
+        <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
+          Click chips to expand tool args, results, and memory gate decisions.
+        </p>
         <div className="stack" style={{ marginTop: 10 }}>
           {events.slice(0, 40).map((e) => (
-            <div
-              key={e.id}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '110px 1fr auto',
-                gap: 10,
-                alignItems: 'center',
-                fontSize: 12,
-              }}
-            >
-              <span className="mono dim">{e.kind}</span>
-              <span>{e.label}</span>
-              <Badge tone={e.status === 'error' ? 'error' : 'default'}>
-                {e.status} · {e.latencyMs}ms
-              </Badge>
-            </div>
+            <TimelineEventRow key={e.id} event={e} />
           ))}
         </div>
       </PanelCard>

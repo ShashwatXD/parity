@@ -30,6 +30,8 @@ import { buildEvalDashboard, runEvalSuite } from '../eval/runner.js';
 import { getRagStatus, indexWorkspace } from '../rag/indexer.js';
 import { searchCodebase } from '../rag/retrieve.js';
 import { deleteSkill, listSkillInfos, writeSkill } from '../agent/skills.js';
+import { shouldRetrieveMemory } from '../memory/retrievalGate.js';
+import { MemoryRepository } from '../repositories/memoryRepository.js';
 import { browseHostDirectory, useHostDirectory } from '../workspace/browse.js';
 import { listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile } from '../workspace/files.js';
 import { gitDiff, gitStatus } from '../workspace/git.js';
@@ -307,6 +309,75 @@ api.get(API_ROUTES.settings, (c) => c.json(getPublicSettings()));
 api.put(API_ROUTES.settings, async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
   return c.json(updateSettings(body));
+});
+
+api.get(API_ROUTES.memories, (c) => {
+  const kind = c.req.query('kind');
+  const parsed = kind === 'fact' || kind === 'episode' ? kind : undefined;
+  return c.json({
+    memories: MemoryRepository.list(parsed),
+    count: MemoryRepository.count(),
+  });
+});
+
+api.post(API_ROUTES.memories, async (c) => {
+  const body = z
+    .object({
+      kind: z.enum(['fact', 'episode']).optional(),
+      subject: z.string().optional(),
+      content: z.string().min(1),
+      happenedAt: z.string().nullable().optional(),
+      source: z.string().optional(),
+    })
+    .parse(await c.req.json());
+  return c.json(
+    MemoryRepository.add({
+      kind: body.kind,
+      subject: body.subject,
+      content: body.content,
+      happenedAt: body.happenedAt,
+      source: body.source ?? 'user',
+    }),
+  );
+});
+
+api.put('/memories/:id', async (c) => {
+  const body = z
+    .object({
+      kind: z.enum(['fact', 'episode']).optional(),
+      subject: z.string().optional(),
+      content: z.string().min(1).optional(),
+      happenedAt: z.string().nullable().optional(),
+    })
+    .parse(await c.req.json());
+  const updated = MemoryRepository.update(c.req.param('id'), body);
+  if (!updated) return c.json({ error: 'Memory not found' }, 404);
+  return c.json(updated);
+});
+
+api.delete('/memories/:id', (c) => {
+  const ok = MemoryRepository.delete(c.req.param('id'));
+  if (!ok) return c.json({ error: 'Memory not found' }, 404);
+  return c.json({ ok: true });
+});
+
+api.post(API_ROUTES.memorySearch, async (c) => {
+  const body = z
+    .object({
+      query: z.string().min(1),
+      limit: z.number().int().min(1).max(40).optional(),
+    })
+    .parse(await c.req.json());
+  return c.json({ memories: MemoryRepository.search(body.query, body.limit ?? 8) });
+});
+
+api.post(API_ROUTES.memoryGate, async (c) => {
+  const body = z.object({ message: z.string() }).parse(await c.req.json());
+  const gate = shouldRetrieveMemory(body.message);
+  const memories = gate.retrieve
+    ? MemoryRepository.search(gate.query || body.message, 6)
+    : [];
+  return c.json({ gate, memories });
 });
 
 api.get(API_ROUTES.workspaceRoot, (c) =>

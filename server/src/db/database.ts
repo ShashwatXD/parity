@@ -141,5 +141,19 @@ export function migrate() {
       updated_at INTEGER NOT NULL DEFAULT 0,
       last_error TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS user_memories (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL DEFAULT 'fact',
+      subject TEXT NOT NULL DEFAULT '',
+      content TEXT NOT NULL,
+      happened_at TEXT,
+      source TEXT NOT NULL DEFAULT 'user',
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_memories_kind ON user_memories(kind);
+    CREATE INDEX IF NOT EXISTS idx_user_memories_subject ON user_memories(subject);
   `);
 }

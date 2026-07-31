@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  Brain,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
@@ -24,6 +25,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   tools: <Wrench size={16} />,
   playground: <Puzzle size={16} />,
   workflows: <Workflow size={16} />,
+  memory: <Brain size={16} />,
   observability: <Activity size={16} />,
   settings: <Settings size={16} />,
 };

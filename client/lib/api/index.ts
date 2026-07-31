@@ -5,6 +5,7 @@ export {
   evalRepository,
   healthRepository,
   mcpRepository,
+  memoryRepository,
   observabilityRepository,
   ragRepository,
   sessionRepository,

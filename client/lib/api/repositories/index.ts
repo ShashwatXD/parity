@@ -3,6 +3,7 @@ export { chatRepository } from './chatRepository';
 export { evalRepository } from './evalRepository';
 export { healthRepository } from './healthRepository';
 export { mcpRepository } from './mcpRepository';
+export { memoryRepository } from './memoryRepository';
 export { observabilityRepository } from './observabilityRepository';
 export { ragRepository } from './ragRepository';
 export { sessionRepository } from './sessionRepository';

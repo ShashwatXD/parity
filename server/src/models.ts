@@ -12,6 +12,25 @@ export type JobStatus = 'queued' | 'running' | 'completed' | 'failed';
 
 export type ArtifactKind = 'markdown' | 'json' | 'text' | 'report';
 
+export type MemoryKind = 'fact' | 'episode';
+
+export type UserMemory = {
+  id: string;
+  kind: MemoryKind;
+  subject: string;
+  content: string;
+  happenedAt: string | null;
+  source: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type RetrievalGateDecision = {
+  retrieve: boolean;
+  query: string;
+  reason: string;
+};
+
 export type Session = {
   id: string;
   title: string;
