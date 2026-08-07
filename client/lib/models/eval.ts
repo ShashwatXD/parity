@@ -26,7 +26,7 @@ export type RunQualityReport = {
 export type EvalCaseResult = {
   id: string;
   name: string;
-  category: 'agent' | 'sandbox' | 'context' | 'skills';
+  category: 'agent' | 'sandbox' | 'context' | 'skills' | 'grounding';
   passed: boolean;
   detail: string;
   durationMs: number;
@@ -42,12 +42,37 @@ export type EvalSuiteReport = {
   summary: string;
 };
 
+export type GoldenCaseResult = {
+  id: string;
+  question: string;
+  expectPaths: string[];
+  topPaths: string[];
+  rank: number | null;
+  hit: boolean;
+  status: 'ok' | 'skipped';
+  detail: string;
+};
+
+export type GoldenReport = {
+  ranAt: number;
+  status: 'ok' | 'skipped';
+  reason: string | null;
+  mode: string;
+  k: number;
+  cases: GoldenCaseResult[];
+  recallAtK: number | null;
+  mrr: number | null;
+  summary: string;
+};
+
 export type EvalDashboard = {
   suite: EvalSuiteReport;
+  golden: GoldenReport;
   recentRuns: RunQualityReport[];
   aggregate: {
     avgOverall: number | null;
     gradedRuns: number;
     toolErrorRate: number | null;
+    retrievalRecall: number | null;
   };
 };

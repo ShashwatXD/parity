@@ -1,19 +1,23 @@
 import { listEvents } from '../observability/timeline.js';
+import { runGoldenSuite, type GoldenReport } from './golden.js';
 import { scoreRecentRuns, type RunQualityReport } from './rubric.js';
 import { runEvalSuite, type EvalSuiteReport } from './suite.js';
 
 export type EvalDashboard = {
   suite: EvalSuiteReport;
+  golden: GoldenReport;
   recentRuns: RunQualityReport[];
   aggregate: {
     avgOverall: number | null;
     gradedRuns: number;
     toolErrorRate: number | null;
+    retrievalRecall: number | null;
   };
 };
 
 export async function buildEvalDashboard(limit = 8): Promise<EvalDashboard> {
   const suite = await runEvalSuite();
+  const golden = await runGoldenSuite();
   const events = listEvents();
   const recentRuns = scoreRecentRuns(events, limit);
 
@@ -29,9 +33,15 @@ export async function buildEvalDashboard(limit = 8): Promise<EvalDashboard> {
 
   return {
     suite,
+    golden,
     recentRuns,
-    aggregate: { avgOverall, gradedRuns, toolErrorRate },
+    aggregate: {
+      avgOverall,
+      gradedRuns,
+      toolErrorRate,
+      retrievalRecall: golden.recallAtK === null ? null : Math.round(golden.recallAtK * 100),
+    },
   };
 }
 
-export { runEvalSuite, scoreRecentRuns };
+export { runEvalSuite, runGoldenSuite, scoreRecentRuns };
