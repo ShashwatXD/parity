@@ -9,9 +9,14 @@ import { formatSkillsForPrompt, selectSkillsForMessage } from '../agent/skills.j
 import { detectStuck, stepFromToolCall, type StuckStep } from '../agent/stuckDetector.js';
 import { runSubagent } from '../agent/subagent.js';
 import { formatPlanMarkdown } from '../agent/taskTracker.js';
+import { buildHistoryTools } from '../agent/historyTools.js';
 import { buildMemoryTools } from '../agent/memoryTools.js';
 import { buildWebTools } from '../agent/webTools.js';
 import { buildWorkspaceTools } from '../agent/workspaceTools.js';
+import {
+  gatedRetrieveHistory,
+  maybeAutoTitleSession,
+} from '../memory/historyIntelligence.js';
 import { gatedRetrieveMemories } from '../memory/retrieve.js';
 import { createArtifact } from './artifacts.js';
 import {
@@ -178,6 +183,7 @@ function buildAgentSystemPrompt(input: {
   sessionId: string;
   mcpTools: Array<{ connectionName: string; name: string }>;
   memoryBlock?: string;
+  historyBlock?: string;
 }): string {
   const skills = selectSkillsForMessage(input.userMessage);
   const skillBlock = formatSkillsForPrompt(skills);
@@ -193,10 +199,11 @@ function buildAgentSystemPrompt(input: {
     '',
     '## Workspace sandbox',
     `Root: ${getWorkspaceRoot()}`,
-    'Native tools: file_editor, terminal, glob, grep, codebase_search, list_dir, git_status, task_tracker, delegate_task, remember, recall_memory, forget_memory, search_web.',
+    'Native tools: file_editor, terminal, glob, grep, codebase_search, list_dir, git_status, task_tracker, delegate_task, remember, recall_memory, forget_memory, search_history, search_web.',
     'Use codebase_search (RAG) to find relevant code by meaning/keywords before broad grep when the workspace is indexed.',
     'For multi-step coding work: create a task_tracker plan first, then execute.',
     'Use remember / recall_memory / forget_memory for durable user preferences and facts (separate from codebase RAG).',
+    'Use search_history for prior chat transcripts across sessions ("last time", earlier decisions).',
     'Use search_web for live/current information (FX rates, news, docs). Never say you lack internet access — call search_web first.',
     '',
     '## Connected MCP tools',
@@ -207,6 +214,7 @@ function buildAgentSystemPrompt(input: {
     '## Current plan',
     plan,
     input.memoryBlock ? `\n${input.memoryBlock}` : '',
+    input.historyBlock ? `\n${input.historyBlock}` : '',
     skillBlock ? `\n${skillBlock}` : '',
   ]
     .filter(Boolean)
@@ -243,6 +251,17 @@ export async function runAgentTurn(input: {
     role: 'user',
     content: input.userMessage,
   });
+
+  const autoTitle = maybeAutoTitleSession(input.sessionId, input.userMessage);
+  if (autoTitle) {
+    recordEvent({
+      runId,
+      sessionId: input.sessionId,
+      kind: 'session_title',
+      label: 'Session titled',
+      detail: { title: autoTitle },
+    });
+  }
 
   const before = buildContextSnapshot({
     sessionId: input.sessionId,
@@ -304,6 +323,28 @@ export async function runAgentTurn(input: {
     },
   });
 
+  const historyHit = gatedRetrieveHistory(input.userMessage, {
+    excludeSessionId: input.sessionId,
+  });
+  recordEvent({
+    runId,
+    sessionId: input.sessionId,
+    kind: 'history_gate',
+    label: historyHit.gate.retrieve ? 'History · retrieve' : 'History · skip',
+    detail: {
+      decision: historyHit.gate.retrieve ? 'retrieve' : 'skip',
+      reason: historyHit.gate.reason,
+      query: historyHit.gate.query,
+      hits: historyHit.hits.map((h) => ({
+        sessionId: h.sessionId,
+        sessionTitle: h.sessionTitle,
+        role: h.role,
+        score: h.score,
+        excerpt: h.excerpt.slice(0, 200),
+      })),
+    },
+  });
+
   const discoveredTools = await mcpManager.listTools();
   recordEvent({
     runId,
@@ -326,11 +367,13 @@ export async function runAgentTurn(input: {
         'remember',
         'recall_memory',
         'forget_memory',
+        'search_history',
         'search_web',
       ],
       skills: skills.map((s) => s.name),
       workspace: getWorkspaceRoot(),
       memoryGate: memoryHit.gate,
+      historyGate: historyHit.gate,
     },
   });
 
@@ -339,6 +382,7 @@ export async function runAgentTurn(input: {
 
   const workspaceTools = buildWorkspaceTools(input.sessionId);
   const memoryTools = buildMemoryTools();
+  const historyTools = buildHistoryTools(input.sessionId);
   const webTools = buildWebTools();
   const mcpTools = await buildMcpTools(runId, input.sessionId);
 
@@ -383,10 +427,16 @@ export async function runAgentTurn(input: {
     },
   });
 
-  // MCP tools already log themselves; wrap workspace + memory + web + delegate for stuck + telemetry
+  // MCP tools already log themselves; wrap workspace + memory + history + web + delegate for stuck + telemetry
   const tools: ToolSet = {
     ...wrapToolsForTelemetry(
-      { ...workspaceTools, ...memoryTools, ...webTools, delegate_task: delegate },
+      {
+        ...workspaceTools,
+        ...memoryTools,
+        ...historyTools,
+        ...webTools,
+        delegate_task: delegate,
+      },
       runId,
       input.sessionId,
       stuckSteps,
@@ -404,6 +454,7 @@ export async function runAgentTurn(input: {
       name: t.name,
     })),
     memoryBlock: memoryHit.promptBlock,
+    historyBlock: historyHit.promptBlock,
   });
 
   const result = streamText({

@@ -61,6 +61,7 @@ export const API_ROUTES = {
   memory: (id: string) => `/memories/${id}`,
   memorySearch: '/memories/search',
   memoryGate: '/memories/gate',
+  historySearch: '/history/search',
   skills: '/skills',
   workspaceRoot: '/workspace',
   workspaceTree: '/workspace/tree',

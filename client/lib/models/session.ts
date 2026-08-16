@@ -9,6 +9,32 @@ export type Session = {
   updatedAt?: number;
 };
 
+/** Session list row with history intelligence fields. */
+export type SessionIntelligence = Session & {
+  messageCount: number;
+  userMessageCount: number;
+  preview: string;
+  topics: string[];
+  condensed: boolean;
+  score?: number;
+};
+
+export type HistoryHit = {
+  sessionId: string;
+  sessionTitle: string;
+  messageId: string;
+  role: string;
+  excerpt: string;
+  score: number;
+  createdAt: number;
+};
+
+export type HistorySearchResult = {
+  query: string;
+  gate: { retrieve: boolean; query: string; reason: string };
+  hits: HistoryHit[];
+};
+
 export type Message = {
   id: string;
   role: MessageRole | string;

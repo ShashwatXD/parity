@@ -31,6 +31,11 @@ import { getRagStatus, indexWorkspace } from '../rag/indexer.js';
 import { searchCodebase } from '../rag/retrieve.js';
 import { deleteSkill, listSkillInfos, writeSkill } from '../agent/skills.js';
 import { shouldRetrieveMemory } from '../memory/retrievalGate.js';
+import {
+  listSessionIntelligence,
+  searchConversationHistory,
+  shouldRetrieveHistory,
+} from '../memory/historyIntelligence.js';
 import { MemoryRepository } from '../repositories/memoryRepository.js';
 import { browseHostDirectory, useHostDirectory } from '../workspace/browse.js';
 import { listWorkspaceTree, readWorkspaceFile, writeWorkspaceFile } from '../workspace/files.js';
@@ -47,7 +52,12 @@ api.get(API_ROUTES.health, (c) =>
 );
 
 api.get(API_ROUTES.sessions, (c) => {
-  return c.json(SessionRepository.list(c.req.query('q') ?? undefined));
+  const q = c.req.query('q') ?? undefined;
+  const intelligent = c.req.query('intelligent') === '1' || c.req.query('intelligent') === 'true';
+  if (intelligent) {
+    return c.json(listSessionIntelligence(q));
+  }
+  return c.json(SessionRepository.list(q));
 });
 
 api.post(API_ROUTES.sessions, async (c) => {
@@ -65,6 +75,13 @@ api.get('/sessions/:id', (c) => {
   const session = getSession(c.req.param('id'));
   if (!session) return c.json({ error: 'Session not found' }, 404);
   return c.json({ ...session, messages: listMessages(session.id) });
+});
+
+api.patch('/sessions/:id', async (c) => {
+  const body = z.object({ title: z.string().min(1).max(200) }).parse(await c.req.json());
+  const updated = SessionRepository.updateTitle(c.req.param('id'), body.title);
+  if (!updated) return c.json({ error: 'Session not found' }, 404);
+  return c.json(updated);
 });
 
 api.get('/sessions/:id/context', (c) => {
@@ -85,6 +102,18 @@ api.delete('/sessions/:id', (c) => {
   const id = c.req.param('id');
   if (!deleteSession(id)) return c.json({ error: 'Session not found' }, 404);
   return c.json({ ok: true });
+});
+
+api.get(API_ROUTES.historySearch, (c) => {
+  const q = c.req.query('q') ?? '';
+  const exclude = c.req.query('excludeSessionId') ?? undefined;
+  const limit = Number(c.req.query('limit') ?? 8);
+  const gate = shouldRetrieveHistory(q);
+  const hits = searchConversationHistory(q, {
+    limit: Number.isFinite(limit) ? Math.min(20, Math.max(1, limit)) : 8,
+    excludeSessionId: exclude,
+  });
+  return c.json({ query: q, gate, hits });
 });
 
 api.get(API_ROUTES.search, async (c) => {

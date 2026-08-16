@@ -4,6 +4,7 @@ export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 export type NavItemId =
   | 'chat'
+  | 'sessions'
   | 'servers'
   | 'tools'
   | 'playground'

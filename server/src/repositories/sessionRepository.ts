@@ -47,6 +47,16 @@ export const SessionRepository = {
     sqlite.prepare(`UPDATE sessions SET updated_at = ? WHERE id = ?`).run(Date.now(), id);
   },
 
+  updateTitle(id: string, title: string): Session | undefined {
+    const existing = this.getById(id);
+    if (!existing) return undefined;
+    const next = title.trim() || existing.title;
+    sqlite
+      .prepare(`UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`)
+      .run(next, Date.now(), id);
+    return this.getById(id);
+  },
+
   delete(id: string): boolean {
     const result = sqlite.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
     return Number(result.changes) > 0;

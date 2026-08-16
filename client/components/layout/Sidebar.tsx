@@ -5,6 +5,7 @@ import {
   Brain,
   ChevronLeft,
   ChevronRight,
+  History,
   MessageSquare,
   Plus,
   Puzzle,
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils/cn';
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
   chat: <MessageSquare size={16} />,
+  sessions: <History size={16} />,
   servers: <Server size={16} />,
   tools: <Wrench size={16} />,
   playground: <Puzzle size={16} />,

@@ -51,6 +51,7 @@ import { McpServersPanel } from '@/components/features/mcp/McpServersPanel';
 import { ObservabilityPanel } from '@/components/features/observability/ObservabilityPanel';
 import { TimelineEventRow } from '@/components/features/observability/EventInspector';
 import { MemoryPanel } from '@/components/features/memory/MemoryPanel';
+import { SessionsPanel } from '@/components/features/sessions/SessionsPanel';
 import { PlaygroundPanel } from '@/components/features/playground/PlaygroundPanel';
 import { SettingsPanel } from '@/components/features/settings/SettingsPanel';
 import { ToolsPanel } from '@/components/features/tools/ToolsPanel';
@@ -660,9 +661,21 @@ export function StudioApp() {
             </Button>
             <h1>{pageTitle}</h1>
             {nav === 'servers' ? <Badge tone="accent">{connections.length} live</Badge> : null}
+            {nav === 'sessions' ? <Badge>{sessions.length} chats</Badge> : null}
             {nav === 'tools' ? <Badge>{tools.length} tools</Badge> : null}
           </div>
           <div className="page-view-body">
+            {nav === 'sessions' ? (
+              <SessionsPanel
+                activeSessionId={sessionId}
+                onOpenSession={(id) => {
+                  void openSession(id);
+                  setNav('chat');
+                }}
+                onDeleteSession={(id) => void deleteChat(id)}
+                onNewChat={() => void createChat()}
+              />
+            ) : null}
             {nav === 'servers' ? (
               <>
                 <McpServersPanel

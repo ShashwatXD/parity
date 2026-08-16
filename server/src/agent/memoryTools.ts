@@ -47,7 +47,7 @@ export function buildMemoryTools(): ToolSet {
 
     recall_memory: tool({
       description:
-        'Search long-term user memory (facts and episodes) by keywords. Prefer this when asking about past preferences or events.',
+        'Search long-term user memory (facts and episodes) by keywords. Prefer this when asking about past preferences or events. For prior chat transcripts use search_history instead.',
       inputSchema: z.object({
         query: z.string().describe('Keywords to search'),
         limit: z.number().int().min(1).max(20).optional(),

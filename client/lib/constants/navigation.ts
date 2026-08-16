@@ -8,6 +8,7 @@ export type NavItem = {
 
 export const PRIMARY_NAV: NavItem[] = [
   { id: 'chat', label: 'Conversations', hint: 'Agent' },
+  { id: 'sessions', label: 'Sessions', hint: 'History' },
   { id: 'servers', label: 'MCP', hint: 'Servers' },
   { id: 'tools', label: 'Tools', hint: 'Registry' },
   { id: 'playground', label: 'Playground', hint: 'Invoke' },
