@@ -132,6 +132,8 @@ test('sqlite tables exist', () => {
     'execution_events',
     'approvals',
     'user_memories',
+    'agent_defs',
+    'team_runs',
   ]) {
     assert.ok(names.includes(required), `missing ${required}`);
   }

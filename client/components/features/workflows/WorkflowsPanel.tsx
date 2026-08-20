@@ -45,7 +45,7 @@ export function WorkflowsPanel({
   onResolve,
 }: Props) {
   return (
-    <div className="pad scroll-y stack">
+    <div className="pad scroll-y stack" data-testid="workflows-panel">
       <PanelCard>
         <div className="stack">
           <strong>Create workflow</strong>
@@ -56,7 +56,7 @@ export function WorkflowsPanel({
             <Button variant="primary" disabled={busy} onClick={onCreateDemo}>
               Demo from playground tool
             </Button>
-            <Button disabled={busy} onClick={onCreateTeamDemo}>
+            <Button disabled={busy} onClick={onCreateTeamDemo} data-testid="workflow-team-demo-btn">
               Demo team graph
             </Button>
           </div>

@@ -44,7 +44,7 @@ export function AgentsPanel({
   onCreateTeamWorkflow,
 }: Props) {
   return (
-    <div className="pad scroll-y stack">
+    <div className="pad scroll-y stack" data-testid="teams-panel">
       <PanelCard>
         <div className="stack">
           <strong>Run multi-agent team</strong>
@@ -58,13 +58,19 @@ export function AgentsPanel({
               value={teamTask}
               onChange={(e) => onTeamTask(e.target.value)}
               placeholder="e.g. Review auth flow and propose a safer session design"
+              data-testid="team-task-input"
             />
           </Field>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Button variant="primary" disabled={busy || !teamTask.trim()} onClick={onRunTeam}>
+            <Button
+              variant="primary"
+              disabled={busy || !teamTask.trim()}
+              onClick={onRunTeam}
+              data-testid="team-run-btn"
+            >
               Run team
             </Button>
-            <Button disabled={busy} onClick={onCreateTeamWorkflow}>
+            <Button disabled={busy} onClick={onCreateTeamWorkflow} data-testid="team-save-workflow-btn">
               Save as team workflow
             </Button>
           </div>
@@ -87,7 +93,7 @@ export function AgentsPanel({
 
       <div className="grid-2">
         <PanelCard>
-          <div className="stack">
+          <div className="stack" data-testid="agent-roster">
             <strong>Agent roster</strong>
             {agents.map((a) => (
               <div

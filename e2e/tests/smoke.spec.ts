@@ -35,6 +35,25 @@ test.describe('App smoke', () => {
     await expect(page.getByText(/Observability|timeline|evaluation|Agent/i).first()).toBeVisible();
   });
 
+  test('opens Teams panel with roster and run controls', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('nav-agents').click();
+    await expect(page.getByTestId('teams-panel')).toBeVisible();
+    await expect(page.getByText(/Run multi-agent team/i).first()).toBeVisible();
+    await expect(page.getByTestId('agent-roster')).toBeVisible();
+    await expect(page.getByTestId('team-task-input')).toBeVisible();
+    await expect(page.getByTestId('team-run-btn')).toBeVisible();
+    await expect(page.getByText(/director|researcher|coder/i).first()).toBeVisible();
+  });
+
+  test('opens Automations with team workflow demo', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('nav-workflows').click();
+    await expect(page.getByTestId('workflows-panel')).toBeVisible();
+    await expect(page.getByTestId('workflow-team-demo-btn')).toBeVisible();
+    await expect(page.getByText(/handoff, team/i).first()).toBeVisible();
+  });
+
   test('opens LLM picker from composer', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('llm-picker').click();
