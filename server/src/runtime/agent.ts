@@ -9,6 +9,8 @@ import { formatSkillsForPrompt, selectSkillsForMessage } from '../agent/skills.j
 import { detectStuck, stepFromToolCall, type StuckStep } from '../agent/stuckDetector.js';
 import { runSubagent } from '../agent/subagent.js';
 import { formatPlanMarkdown } from '../agent/taskTracker.js';
+import { runHierarchicalTeam } from './team.js';
+import { AgentRepository } from '../repositories/agentRepository.js';
 import { buildHistoryTools } from '../agent/historyTools.js';
 import { buildMemoryTools } from '../agent/memoryTools.js';
 import { buildWebTools } from '../agent/webTools.js';
@@ -199,7 +201,8 @@ function buildAgentSystemPrompt(input: {
     '',
     '## Workspace sandbox',
     `Root: ${getWorkspaceRoot()}`,
-    'Native tools: file_editor, terminal, glob, grep, codebase_search, list_dir, git_status, task_tracker, delegate_task, remember, recall_memory, forget_memory, search_history, search_web.',
+    'Native tools: file_editor, terminal, glob, grep, codebase_search, list_dir, git_status, task_tracker, delegate_task, run_team, remember, recall_memory, forget_memory, search_history, search_web.',
+    'For multi-specialist work use run_team (director → parallel workers → synthesis). For a single focused handoff use delegate_task with an agent name.',
     'Use codebase_search (RAG) to find relevant code by meaning/keywords before broad grep when the workspace is indexed.',
     'For multi-step coding work: create a task_tracker plan first, then execute.',
     'Use remember / recall_memory / forget_memory for durable user preferences and facts (separate from codebase RAG).',
@@ -364,6 +367,7 @@ export async function runAgentTurn(input: {
         'git_status',
         'task_tracker',
         'delegate_task',
+        'run_team',
         'remember',
         'recall_memory',
         'forget_memory',
@@ -388,10 +392,14 @@ export async function runAgentTurn(input: {
 
   const delegate = tool({
     description:
-      'Delegate a focused coding subtask to a nested subagent with workspace tools only. Use for parallelizable or isolated work.',
+      'Delegate a focused subtask to a named agent (or a default workspace subagent). Prefer run_team for multi-specialist work.',
     inputSchema: z.object({
       goal: z.string().describe('Clear, self-contained goal for the subagent'),
-      max_steps: z.number().int().min(1).max(12).optional(),
+      max_steps: z.number().int().min(1).max(16).optional(),
+      agent_id: z
+        .string()
+        .optional()
+        .describe('Agent def id or name (researcher, coder, reviewer, …)'),
     }),
     execute: async (args) => {
       const started = Date.now();
@@ -401,13 +409,19 @@ export async function runAgentTurn(input: {
           goal: args.goal,
           profileId: active.profile?.id,
           maxSteps: args.max_steps,
+          agentId: args.agent_id,
         });
         recordEvent({
           runId,
           sessionId: input.sessionId,
           kind: 'subagent',
-          label: 'Subagent completed',
-          detail: { goal: args.goal, steps: result.steps, preview: result.text.slice(0, 400) },
+          label: result.agentName ? `${result.agentName} completed` : 'Subagent completed',
+          detail: {
+            goal: args.goal,
+            agentId: args.agent_id,
+            steps: result.steps,
+            preview: result.text.slice(0, 400),
+          },
           latencyMs: Date.now() - started,
         });
         return JSON.stringify(result);
@@ -427,6 +441,73 @@ export async function runAgentTurn(input: {
     },
   });
 
+  const teamTool = tool({
+    description:
+      'Run a hierarchical team: director plans, specialist workers execute in parallel, synthesizer merges. Use for multi-perspective research, implement+review, or complex multi-step goals.',
+    inputSchema: z.object({
+      task: z.string().describe('Overall team task'),
+      worker_agents: z
+        .array(z.string())
+        .optional()
+        .describe('Optional agent ids/names (default: all non-director specialists)'),
+      max_loops: z.number().int().min(1).max(3).optional(),
+      parallel: z.boolean().optional().describe('Run worker orders in parallel (default true)'),
+    }),
+    execute: async (args) => {
+      const started = Date.now();
+      try {
+        AgentRepository.ensureDefaults();
+        const result = await runHierarchicalTeam({
+          task: args.task,
+          sessionId: input.sessionId,
+          workerAgentIds: args.worker_agents,
+          maxLoops: args.max_loops ?? 1,
+          parallel: args.parallel !== false,
+          profileId: active.profile?.id,
+          runId,
+        });
+        recordEvent({
+          runId,
+          sessionId: input.sessionId,
+          kind: 'team',
+          label: 'Team completed',
+          detail: {
+            teamId: result.teamId,
+            plan: result.plan.slice(0, 400),
+            workers: result.results.length,
+            preview: result.synthesis.slice(0, 400),
+          },
+          latencyMs: Date.now() - started,
+        });
+        return JSON.stringify({
+          teamId: result.teamId,
+          status: result.status,
+          plan: result.plan,
+          synthesis: result.synthesis,
+          results: result.results.map((r) => ({
+            agent: r.agentName,
+            ok: r.ok,
+            steps: r.steps,
+            preview: r.text.slice(0, 500),
+            error: r.error,
+          })),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        recordEvent({
+          runId,
+          sessionId: input.sessionId,
+          kind: 'team',
+          label: 'Team failed',
+          detail: { message },
+          status: 'error',
+          latencyMs: Date.now() - started,
+        });
+        return `ERROR: ${message}`;
+      }
+    },
+  });
+
   // MCP tools already log themselves; wrap workspace + memory + history + web + delegate for stuck + telemetry
   const tools: ToolSet = {
     ...wrapToolsForTelemetry(
@@ -436,6 +517,7 @@ export async function runAgentTurn(input: {
         ...historyTools,
         ...webTools,
         delegate_task: delegate,
+        run_team: teamTool,
       },
       runId,
       input.sessionId,

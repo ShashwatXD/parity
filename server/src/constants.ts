@@ -22,6 +22,8 @@ export const ID_PREFIX = {
   approval: 'appr',
   job: 'job',
   memory: 'mem',
+  agent: 'agent',
+  team: 'team',
 } as const;
 
 /** Relative route paths mounted under `/api`. */
@@ -43,6 +45,11 @@ export const API_ROUTES = {
   oauthStatus: '/oauth/status',
   workflows: '/workflows',
   workflowRun: (id: string) => `/workflows/${id}/run`,
+  agents: '/agents',
+  agent: (id: string) => `/agents/${id}`,
+  teams: '/teams',
+  team: (id: string) => `/teams/${id}`,
+  teamRun: '/teams/run',
   approvals: '/approvals',
   approvalResolve: (id: string) => `/approvals/${id}/resolve`,
   jobs: '/jobs',

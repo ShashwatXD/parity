@@ -26,6 +26,9 @@ import {
   runWorkflow,
   type WorkflowGraph,
 } from '../runtime/workflows.js';
+import { AgentRepository } from '../repositories/agentRepository.js';
+import { agentDefInputSchema } from '../runtime/teamTypes.js';
+import { getTeam, listTeams, runHierarchicalTeam } from '../runtime/team.js';
 import { buildEvalDashboard, runEvalSuite } from '../eval/runner.js';
 import { getRagStatus, indexWorkspace } from '../rag/indexer.js';
 import { searchCodebase } from '../rag/retrieve.js';
@@ -272,6 +275,67 @@ api.post('/workflows/:id/run', async (c) => {
       );
     }
     return c.json(await runWorkflow(c.req.param('id'), body.input));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.get(API_ROUTES.agents, (c) => c.json(AgentRepository.list()));
+
+api.post(API_ROUTES.agents, async (c) => {
+  const body = agentDefInputSchema.parse(await c.req.json());
+  try {
+    return c.json(AgentRepository.create(body), 201);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ error: message }, 400);
+  }
+});
+
+api.get('/agents/:id', (c) => {
+  const agent = AgentRepository.getById(c.req.param('id'));
+  if (!agent) return c.json({ error: 'Agent not found' }, 404);
+  return c.json(agent);
+});
+
+api.put('/agents/:id', async (c) => {
+  const body = agentDefInputSchema.partial().parse(await c.req.json());
+  const updated = AgentRepository.update(c.req.param('id'), body);
+  if (!updated) return c.json({ error: 'Agent not found' }, 404);
+  return c.json(updated);
+});
+
+api.delete('/agents/:id', (c) => {
+  if (!AgentRepository.delete(c.req.param('id'))) {
+    return c.json({ error: 'Agent not found' }, 404);
+  }
+  return c.json({ ok: true });
+});
+
+api.get(API_ROUTES.teams, (c) => c.json(listTeams()));
+
+api.get('/teams/:id', (c) => {
+  const team = getTeam(c.req.param('id'));
+  if (!team) return c.json({ error: 'Team not found' }, 404);
+  return c.json(team);
+});
+
+api.post(API_ROUTES.teamRun, async (c) => {
+  try {
+    const body = z
+      .object({
+        task: z.string().min(1),
+        sessionId: z.string().optional(),
+        directorAgentId: z.string().optional(),
+        workerAgentIds: z.array(z.string()).optional(),
+        maxLoops: z.number().int().min(1).max(3).optional(),
+        parallel: z.boolean().optional(),
+        profileId: z.string().optional(),
+      })
+      .parse(await c.req.json());
+    const result = await runHierarchicalTeam(body);
+    return c.json(result, 201);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return c.json({ error: message }, 400);

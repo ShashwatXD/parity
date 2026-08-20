@@ -155,5 +155,45 @@ export function migrate() {
 
     CREATE INDEX IF NOT EXISTS idx_user_memories_kind ON user_memories(kind);
     CREATE INDEX IF NOT EXISTS idx_user_memories_subject ON user_memories(subject);
+
+    CREATE TABLE IF NOT EXISTS agent_defs (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      system_prompt TEXT NOT NULL,
+      profile_id TEXT,
+      tools TEXT NOT NULL DEFAULT 'workspace',
+      max_steps INTEGER NOT NULL DEFAULT 8,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS team_runs (
+      id TEXT PRIMARY KEY,
+      task TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'running',
+      artifacts_json TEXT NOT NULL DEFAULT '{}',
+      messages_json TEXT NOT NULL DEFAULT '[]',
+      director_plan TEXT,
+      loop INTEGER NOT NULL DEFAULT 0,
+      max_loops INTEGER NOT NULL DEFAULT 1,
+      session_id TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_team_runs_created ON team_runs(created_at);
   `);
+
+  // Rename legacy table if present (one-time).
+  try {
+    const legacy = sqlite
+      .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='swarm_runs'`)
+      .get() as { name?: string } | undefined;
+    if (legacy?.name) {
+      sqlite.exec(`ALTER TABLE swarm_runs RENAME TO team_runs_legacy_backup`);
+    }
+  } catch {
+    /* ignore if already migrated or locked */
+  }
 }
