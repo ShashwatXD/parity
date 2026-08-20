@@ -11,6 +11,7 @@ export type NavItemId =
   | 'resources'
   | 'prompts'
   | 'workflows'
+  | 'agents'
   | 'memory'
   | 'observability'
   | 'settings';

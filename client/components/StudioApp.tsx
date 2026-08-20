@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe, Menu, PanelRight } from 'lucide-react';
 import {
+  agentRepository,
   approvalRepository,
   chatRepository,
   mcpRepository,
@@ -10,6 +11,7 @@ import {
   sessionRepository,
   settingsRepository,
   studioRepository,
+  teamRepository,
   workflowRepository,
 } from '@/lib/api';
 import {
@@ -22,6 +24,8 @@ import {
 import { useBreakpoint } from '@/lib/hooks/useBreakpoint';
 import { notifyWorkspaceChanged } from '@/lib/workspace/events';
 import type {
+  AgentDef,
+  AgentToolAccess,
   Approval,
   Artifact,
   BackgroundJob,
@@ -38,6 +42,7 @@ import type {
   PublicLlmProfile,
   RightPanelTab,
   Session,
+  TeamState,
   Workflow,
 } from '@/lib/models';
 import { AppShell } from '@/components/layout/AppShell';
@@ -58,6 +63,7 @@ import { ToolsPanel } from '@/components/features/tools/ToolsPanel';
 import { FilesPanel } from '@/components/features/workspace/FilesPanel';
 import { TerminalPanel } from '@/components/features/workspace/TerminalPanel';
 import { WorkflowsPanel } from '@/components/features/workflows/WorkflowsPanel';
+import { AgentsPanel } from '@/components/features/agents/AgentsPanel';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { PanelCard } from '@/components/ui/Panel';
@@ -80,6 +86,23 @@ export function StudioApp() {
   const [events, setEvents] = useState<ExecutionEvent[]>([]);
   const [metrics, setMetrics] = useState<Partial<MetricsSummary>>({});
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [agents, setAgents] = useState<AgentDef[]>([]);
+  const [teams, setTeams] = useState<TeamState[]>([]);
+  const [teamTask, setTeamTask] = useState('Map the auth flow and propose safer session handling');
+  const [lastSynthesis, setLastSynthesis] = useState('');
+  const [agentDraft, setAgentDraft] = useState<{
+    name: string;
+    description: string;
+    systemPrompt: string;
+    tools: AgentToolAccess;
+    maxSteps: number;
+  }>({
+    name: '',
+    description: '',
+    systemPrompt: 'You are a specialist agent. Complete only your assigned goal.',
+    tools: 'workspace',
+    maxSteps: 8,
+  });
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [jobs, setJobs] = useState<BackgroundJob[]>([]);
@@ -184,7 +207,7 @@ export function StudioApp() {
   }
 
   async function refresh() {
-    const [s, c, t, r, p, e, m, w, a, art, j, pl] = await Promise.all([
+    const [s, c, t, r, p, e, m, w, a, art, j, pl, ag, tm] = await Promise.all([
       sessionRepository.list(),
       mcpRepository.connections(),
       mcpRepository.tools(),
@@ -197,6 +220,8 @@ export function StudioApp() {
       studioRepository.artifacts(),
       studioRepository.jobs(),
       studioRepository.plugins(),
+      agentRepository.list(),
+      teamRepository.list(),
     ]);
     setSessions(s);
     setConnections(c.live ?? []);
@@ -210,6 +235,8 @@ export function StudioApp() {
     setArtifacts(art);
     setJobs(j);
     setPlugins(pl);
+    setAgents(ag);
+    setTeams(tm);
     // Use ref — interval refresh closes over a stale empty sessionId otherwise
     // and re-opens the first session every 8s, wiping harness chips.
     if (!sessionIdRef.current && s[0]) await openSession(s[0].id);
@@ -362,6 +389,81 @@ export function StudioApp() {
       },
     });
     await refresh();
+  }
+
+  async function createTeamDemoWorkflow() {
+    await workflowRepository.create({
+      name: wfName || 'Team demo',
+      description: 'Hierarchical team step with shared state + synthesis',
+      graph: {
+        steps: [
+          {
+            id: 'team1',
+            type: 'team',
+            task: teamTask || 'Analyze the workspace and propose next steps',
+            maxLoops: 1,
+            parallel: true,
+          },
+          {
+            id: 'report',
+            type: 'artifact',
+            title: 'Team synthesis',
+            kind: 'markdown',
+            fromStepId: 'team1',
+          },
+        ],
+      },
+    });
+    await refresh();
+    setNav('workflows');
+  }
+
+  async function runTeamNow() {
+    if (!teamTask.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await teamRepository.run({
+        task: teamTask,
+        sessionId: sessionId || undefined,
+        profileId: profileId || undefined,
+        maxLoops: 1,
+        parallel: true,
+      });
+      setLastSynthesis(result.synthesis);
+      if (result.state?.id) setLastRunId(result.teamId);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createAgent() {
+    setBusy(true);
+    setError('');
+    try {
+      await agentRepository.create(agentDraft);
+      setAgentDraft((d) => ({ ...d, name: '', description: '' }));
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteAgent(id: string) {
+    setBusy(true);
+    try {
+      await agentRepository.delete(id);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function runWf(id: string, background = false) {
@@ -729,10 +831,27 @@ export function StudioApp() {
                 busy={busy}
                 onWfName={setWfName}
                 onCreateDemo={() => void createDemoWorkflow()}
+                onCreateTeamDemo={() => void createTeamDemoWorkflow()}
                 onRun={(id, bg) => void runWf(id, bg)}
                 onResolve={(id, status) =>
                   void approvalRepository.resolve(id, { status }).then(refresh)
                 }
+              />
+            ) : null}
+            {nav === 'agents' ? (
+              <AgentsPanel
+                agents={agents}
+                teams={teams}
+                draft={agentDraft}
+                teamTask={teamTask}
+                busy={busy}
+                lastSynthesis={lastSynthesis}
+                onDraft={(patch) => setAgentDraft((d) => ({ ...d, ...patch }))}
+                onTeamTask={setTeamTask}
+                onCreateAgent={() => void createAgent()}
+                onDeleteAgent={(id) => void deleteAgent(id)}
+                onRunTeam={() => void runTeamNow()}
+                onCreateTeamWorkflow={() => void createTeamDemoWorkflow()}
               />
             ) : null}
             {nav === 'observability' ? (

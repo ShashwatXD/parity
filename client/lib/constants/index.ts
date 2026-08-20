@@ -12,7 +12,8 @@ export const WORKSPACE_TABS = [
   'playground',
   'resources',
   'prompts',
-  'workflows',
-  'memory',
-  'observability',
+    'workflows',
+    'agents',
+    'memory',
+    'observability',
 ] as const;

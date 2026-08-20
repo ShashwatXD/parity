@@ -1,4 +1,5 @@
 export { approvalRepository } from './approvalRepository';
+export { agentRepository, teamRepository } from './agentRepository';
 export { chatRepository } from './chatRepository';
 export { evalRepository } from './evalRepository';
 export { healthRepository } from './healthRepository';

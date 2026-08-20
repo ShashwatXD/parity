@@ -6,4 +6,5 @@ export * from './memory';
 export * from './observability';
 export * from './session';
 export * from './settings';
+export * from './team';
 export * from './workflow';

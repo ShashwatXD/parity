@@ -17,6 +17,15 @@ export type WorkflowGraph = {
   steps: Array<Record<string, unknown>>;
 };
 
+export type WorkflowStepType =
+  | 'tool'
+  | 'artifact'
+  | 'agent'
+  | 'parallel'
+  | 'synthesize'
+  | 'handoff'
+  | 'team';
+
 export type CreateWorkflowInput = {
   name: string;
   description?: string;

@@ -21,6 +21,11 @@ const HARNESS_KINDS = [
   'tool_error',
   'stuck',
   'subagent',
+  'team',
+  'team_start',
+  'team_plan',
+  'team_worker',
+  'team_complete',
   'condensation',
   'assistant_response',
 ];

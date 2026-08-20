@@ -1,6 +1,7 @@
 export { ApiError, apiGet, apiSend, apiStream } from './client';
 export {
   approvalRepository,
+  agentRepository,
   chatRepository,
   evalRepository,
   healthRepository,
@@ -11,6 +12,7 @@ export {
   sessionRepository,
   settingsRepository,
   studioRepository,
+  teamRepository,
   workflowRepository,
   workspaceRepository,
 } from './repositories';

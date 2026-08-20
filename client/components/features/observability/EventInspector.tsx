@@ -33,7 +33,8 @@ function hitCount(detail: Record<string, unknown> | null): number {
 function chipTone(kind: string, status: string): string {
   if (status === 'error' || kind === 'tool_error' || kind === 'stuck') return 'error';
   if (kind === 'memory_gate') return 'memory';
-  if (kind === 'tool_call' || kind === 'subagent') return 'tool';
+  if (kind === 'tool_call' || kind === 'subagent' || kind === 'team' || kind === 'team_worker')
+    return 'tool';
   if (kind === 'react_step' || kind === 'assistant_response') return 'step';
   if (kind === 'condensation') return 'soft';
   return 'default';

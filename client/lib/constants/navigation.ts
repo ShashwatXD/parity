@@ -13,6 +13,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { id: 'tools', label: 'Tools', hint: 'Registry' },
   { id: 'playground', label: 'Playground', hint: 'Invoke' },
   { id: 'workflows', label: 'Automations', hint: 'Workflows' },
+  { id: 'agents', label: 'Teams', hint: 'Agents' },
   { id: 'memory', label: 'Memory', hint: 'User facts' },
   { id: 'observability', label: 'Observability', hint: 'Timeline' },
   { id: 'settings', label: 'Settings', hint: 'LLM & prompts' },

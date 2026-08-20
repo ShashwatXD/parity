@@ -1,6 +1,6 @@
 # Parity
 
-Agent control plane for MCP + coding runtimes (TypeScript). UI inspired by OpenHands Agent Canvas.
+Agent control plane for MCP + coding runtimes + multi-agent teams (TypeScript). UI inspired by OpenHands Agent Canvas.
 
 ```bash
 cp .env.example .env
@@ -24,8 +24,22 @@ Working example:
 1. **Chat** — LLM + workspace tools + connected MCP  
 2. **Servers** — stdio / Streamable HTTP MCP  
 3. **Tools / Playground** — inspect and invoke tools  
-4. **Workflows** — multi-step runs (+ HITL)  
-5. **Observability** — timeline, tokens, evals  
+4. **Workflows** — multi-step runs (`tool`, `agent`, `parallel`, `synthesize`, `handoff`, `team`) + HITL  
+5. **Teams** — named agent roster + hierarchical director → workers → synthesis  
+6. **Observability** — timeline, tokens, evals  
+
+## Multi-agent teams
+
+Parity ships default agents (`director`, `researcher`, `coder`, `reviewer`, `synthesizer`).
+
+| Surface | How |
+|---------|-----|
+| Chat | `run_team` tool (or `delegate_task` with an agent name) |
+| UI | **Teams** nav — run task, edit roster, view recent runs |
+| API | `POST /api/teams/run`, `GET /api/agents`, workflow step `type: "team"` |
+| Workflows | Steps: `agent`, `parallel`, `synthesize`, `handoff`, `team` |
+
+Shared team state (plan, messages, artifacts) is stored per run and appears in observability events.
 
 ## How it works
 
@@ -36,6 +50,7 @@ Working example:
 | `"hi"` | Chat LLM only |
 | Edit / run code | `file_editor` / `terminal` / `grep` / … |
 | “Where is X?” | `codebase_search` after Reindex (Voyage embeddings) |
+| Multi-agent task | `run_team` → director plan → parallel workers → synthesis |
 | Browser MCP | Connected Playwright (etc.) tools |
 
 RAG is opt-in (Reindex in Files). Chat model ≠ embedding model.

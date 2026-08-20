@@ -15,9 +15,21 @@ type Props = {
   busy: boolean;
   onWfName: (v: string) => void;
   onCreateDemo: () => void;
+  onCreateTeamDemo: () => void;
   onRun: (id: string, background?: boolean) => void;
   onResolve: (id: string, status: 'approved' | 'rejected') => void;
 };
+
+function stepSummary(graphJson?: string): string {
+  if (!graphJson) return '';
+  try {
+    const graph = JSON.parse(graphJson) as { steps?: Array<{ type?: string }> };
+    const types = (graph.steps ?? []).map((s) => s.type ?? '?');
+    return types.length ? types.join(' → ') : '';
+  } catch {
+    return '';
+  }
+}
 
 export function WorkflowsPanel({
   workflows,
@@ -28,6 +40,7 @@ export function WorkflowsPanel({
   busy,
   onWfName,
   onCreateDemo,
+  onCreateTeamDemo,
   onRun,
   onResolve,
 }: Props) {
@@ -35,13 +48,21 @@ export function WorkflowsPanel({
     <div className="pad scroll-y stack">
       <PanelCard>
         <div className="stack">
-          <strong>Create demo workflow</strong>
+          <strong>Create workflow</strong>
           <Field label="Name">
             <Input value={wfName} onChange={(e) => onWfName(e.target.value)} />
           </Field>
-          <Button variant="primary" disabled={busy} onClick={onCreateDemo}>
-            Create from selected playground tool
-          </Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button variant="primary" disabled={busy} onClick={onCreateDemo}>
+              Demo from playground tool
+            </Button>
+            <Button disabled={busy} onClick={onCreateTeamDemo}>
+              Demo team graph
+            </Button>
+          </div>
+          <p className="muted" style={{ margin: 0, fontSize: 12 }}>
+            Step types: tool, artifact, agent, parallel, synthesize, handoff, team
+          </p>
         </div>
       </PanelCard>
 
@@ -52,7 +73,10 @@ export function WorkflowsPanel({
             <div key={w.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
                 <div>{w.name}</div>
-                <div className="muted" style={{ fontSize: 12 }}>{w.description}</div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {w.description}
+                  {stepSummary(w.graphJson) ? ` · ${stepSummary(w.graphJson)}` : ''}
+                </div>
               </div>
               <Button disabled={busy} onClick={() => onRun(w.id, false)}>
                 Run
@@ -70,7 +94,9 @@ export function WorkflowsPanel({
           <div className="stack">
             <strong>Pending approvals</strong>
             {approvals.length === 0 ? (
-              <p className="muted" style={{ margin: 0 }}>None</p>
+              <p className="muted" style={{ margin: 0 }}>
+                None
+              </p>
             ) : (
               approvals.map((a) => (
                 <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
